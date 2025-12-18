@@ -1,0 +1,2 @@
+spam@example.com
+@spam.com
