@@ -54,6 +54,9 @@ fun MailSystemApp() {
                 onNavigateToRegister = {
                     navController.navigate("register")
                 },
+                onNavigateToAppeal = {
+                    navController.navigate("appeal")
+                },
                 viewModel = authViewModel
             )
         }
@@ -63,6 +66,15 @@ fun MailSystemApp() {
                 onRegisterSuccess = {
                     navController.popBackStack()
                 },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                viewModel = authViewModel
+            )
+        }
+        
+        composable("appeal") {
+            AppealScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },

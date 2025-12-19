@@ -257,6 +257,9 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedMailContent = MutableStateFlow<String?>(null)
     val selectedMailContent: StateFlow<String?> = _selectedMailContent
 
+    private val _appeals = MutableStateFlow<List<com.mailsystem.data.model.AppealResponse>>(emptyList())
+    val appeals: StateFlow<List<com.mailsystem.data.model.AppealResponse>> = _appeals
+
     fun loadAllMails() {
         viewModelScope.launch {
             val result = repository.getAllMails()
@@ -277,5 +280,42 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearMailContent() {
         _selectedMailContent.value = null
+    }
+
+    // 申诉管理
+    fun loadAppeals() {
+        viewModelScope.launch {
+            val result = repository.getAppeals()
+            if (result.isSuccess) {
+                _appeals.value = result.getOrNull() ?: emptyList()
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "加载申诉列表失败"
+            }
+        }
+    }
+
+    fun approveAppeal(appealId: Int) {
+        viewModelScope.launch {
+            val result = repository.approveAppeal(appealId)
+            if (result.isSuccess) {
+                _message.value = "申诉已通过，账号已启用"
+                loadAppeals()
+                loadUsers() // 刷新用户列表以反映状态变化
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "操作失败"
+            }
+        }
+    }
+
+    fun rejectAppeal(appealId: Int) {
+        viewModelScope.launch {
+            val result = repository.rejectAppeal(appealId)
+            if (result.isSuccess) {
+                _message.value = "申诉已拒绝"
+                loadAppeals()
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "操作失败"
+            }
+        }
     }
 }

@@ -36,11 +36,14 @@ fun AdminScreen(
     val selectedMailContent by adminViewModel.selectedMailContent.collectAsState()
     var showMailDetailDialog by remember { mutableStateOf(false) }
     
+    val appeals by adminViewModel.appeals.collectAsState()
+    
     LaunchedEffect(Unit) {
         adminViewModel.loadUsers()
         adminViewModel.loadIpBlacklist()
         adminViewModel.loadEmailBlacklist()
         adminViewModel.loadAllMails()
+        adminViewModel.loadAppeals()
     }
     
     LaunchedEffect(message) {
@@ -255,6 +258,55 @@ fun AdminScreen(
                                             Text(email)
                                             TextButton(onClick = { adminViewModel.removeEmail(email) }) { Text("移除") }
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 申诉管理
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("账号申诉 (${appeals.size})", style = MaterialTheme.typography.titleMedium)
+                                if (appeals.isEmpty()) {
+                                    Text("暂无待处理申诉", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    appeals.forEach { appeal ->
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text("用户: ${appeal.username}", style = MaterialTheme.typography.titleSmall)
+                                                Text("理由: ${appeal.reason}", style = MaterialTheme.typography.bodyMedium)
+                                                Text("时间: ${appeal.created_at}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.End,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    TextButton(
+                                                        onClick = { adminViewModel.rejectAppeal(appeal.id) },
+                                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                                    ) {
+                                                        Text("拒绝")
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Button(
+                                                        onClick = { adminViewModel.approveAppeal(appeal.id) }
+                                                    ) {
+                                                        Text("通过")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
                                 }
                             }

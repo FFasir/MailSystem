@@ -58,3 +58,23 @@ class SaveDraftRequest(BaseModel):
     subject: str
     body: str
     filename: Optional[str] = None
+
+
+class AppealRequest(BaseModel):
+    """提交申诉请求"""
+    username: str
+    password: str
+    reason: str
+
+
+class AppealResponse(BaseModel):
+    """申诉响应"""
+    id: int
+    user_id: int
+    username: str
+    reason: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -23,6 +23,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val username = userPreferences.username
     val role = userPreferences.role
     
+    private val _appealMessage = MutableStateFlow<String?>(null)
+    val appealMessage: StateFlow<String?> = _appealMessage
+
     private val _profileMessage = MutableStateFlow<String?>(null)
     val profileMessage: StateFlow<String?> = _profileMessage
     private val _profileError = MutableStateFlow<String?>(null)
@@ -66,7 +69,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun resetRegisterState() {
         _registerState.value = RegisterState.Idle
     }
-    
+
+    fun submitAppeal(username: String, password: String, reason: String) {
+        viewModelScope.launch {
+            val result = repository.submitAppeal(username, password, reason)
+            if (result.isSuccess) {
+                _appealMessage.value = result.getOrNull()
+            } else {
+                _appealMessage.value = "申诉提交失败: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
+    fun clearAppealMessage() {
+        _appealMessage.value = null
+    }
+
     fun changeMyPassword(oldPassword: String, newPassword: String) {
         viewModelScope.launch {
             val result = repository.changeMyPassword(oldPassword, newPassword)

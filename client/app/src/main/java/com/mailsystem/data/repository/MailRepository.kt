@@ -609,4 +609,61 @@ class MailRepository(private val userPreferences: UserPreferences) {
             Result.failure(e)
         }
     }
+
+    // 申诉功能
+    suspend fun submitAppeal(username: String, password: String, reason: String): Result<String> {
+        return try {
+            val response = api.submitAppeal(AppealRequest(username, password, reason))
+            if (response.isSuccessful && response.body() != null && response.body()!!.success) {
+                Result.success(response.body()!!.message)
+            } else {
+                val errorMsg = try { response.errorBody()?.string() ?: response.message() } catch (e: Exception) { response.message() }
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getAppeals(): Result<List<AppealResponse>> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getAppeals("Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun approveAppeal(appealId: Int): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.approveAppeal(appealId, "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.message)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun rejectAppeal(appealId: Int): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.rejectAppeal(appealId, "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.message)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

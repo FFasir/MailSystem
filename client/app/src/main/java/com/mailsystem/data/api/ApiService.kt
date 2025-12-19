@@ -175,5 +175,24 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<MessageResponse>
 
+    // 申诉
+    @POST("appeal/submit")
+    suspend fun submitAppeal(@Body request: AppealRequest): Response<MessageResponse>
+
+    @GET("appeal/list")
+    suspend fun getAppeals(@Header("Authorization") token: String): Response<List<AppealResponse>>
+
+    @POST("appeal/{appealId}/approve")
+    suspend fun approveAppeal(
+        @Path("appealId") appealId: Int,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
+    @POST("appeal/{appealId}/reject")
+    suspend fun rejectAppeal(
+        @Path("appealId") appealId: Int,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
     // sendMail 已移除 - Android 直接使用 SMTP 协议发送邮件
 }

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from app.db import init_db
 from app.services.smtp_server import SMTPServer
 from app.services.pop3_server import POP3Server
-from app.routers import health, auth, admin, mail
+from app.routers import health, auth, admin, mail, appeal
 
 
 # 全局任务存储
@@ -69,6 +69,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(mail.router)
+app.include_router(appeal.router)
 
 
 if __name__ == "__main__":

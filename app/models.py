@@ -1,7 +1,8 @@
 """
 数据库模型定义 - users、mails 表
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -19,8 +20,27 @@ class User(Base):
     is_disabled = Column(Integer, default=0)  # 0 启用, 1 禁用
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    appeals = relationship("Appeal", back_populates="user")
+
     def __repr__(self):
         return f"<User {self.username}>"
+
+
+class Appeal(Base):
+    """申诉表"""
+    __tablename__ = "appeals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    reason = Column(String(500), nullable=False)
+    status = Column(String(20), default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="appeals")
+
+    def __repr__(self):
+        return f"<Appeal user={self.user_id} status={self.status}>"
+
 
 
 class Mail(Base):

@@ -259,4 +259,68 @@ fun ComposeScreen(
             }
         )
     }
+
+    // 保存草稿成功对话框
+    if (showSaveSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveSuccessDialog = false },
+            title = { Text("保存成功", fontSize = 18.sp) },
+            text = { Text("草稿已保存", fontSize = 14.sp) },
+            confirmButton = {
+                Button(
+                    onClick = { showSaveSuccessDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("确定")
+                }
+            }
+        )
+    }
+
+    // 退出确认对话框（询问是否存草稿）
+    if (showSaveDraftDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveDraftDialog = false },
+            title = { Text("保存草稿？", fontSize = 18.sp) },
+            text = { Text("是否将未发送的邮件保存到草稿箱？", fontSize = 14.sp) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSaveDraftDialog = false
+                        // 执行保存并退出
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                val result = mailViewModel.saveDraft(recipient, subject, content, currentDraftFilename)
+                                if (result.isSuccess) {
+                                    onBack() // 保存成功后退出
+                                } else {
+                                    errorMessage = result.exceptionOrNull()?.message ?: "保存草稿失败"
+                                    showErrorDialog = true
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = e.message ?: "保存草稿失败"
+                                showErrorDialog = true
+                            } finally {
+                                isSaving = false
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSaveDraftDialog = false
+                        onBack() // 不保存直接退出
+                    }
+                ) {
+                    Text("不保存")
+                }
+            }
+        )
+    }
 }
