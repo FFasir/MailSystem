@@ -51,3 +51,10 @@ class SendMailRequest(BaseModel):
     to_addr: str
     subject: str
     body: str
+
+class SaveDraftRequest(BaseModel):
+    """保存草稿请求"""
+    to_addr: str
+    subject: str
+    body: str
+    filename: Optional[str] = None

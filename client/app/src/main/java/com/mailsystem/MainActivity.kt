@@ -46,7 +46,7 @@ fun MailSystemApp() {
     ) {
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { role ->
+                onLoginSuccess = { _ ->
                     navController.navigate("inbox") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -87,22 +87,65 @@ fun MailSystemApp() {
                 onNavigateToAdmin = {
                     navController.navigate("admin")
                 },
-                onCompose = {
-                    navController.navigate("compose")
+                onCompose = { draftFilename ->
+                    if (draftFilename != null) {
+                        navController.navigate("compose?draft=$draftFilename")
+                    } else {
+                        navController.navigate("compose")
+                    }
                 },
                 authViewModel = authViewModel
             )
         }
         
-        composable("compose") {
-            ComposeScreen(
-                onBack = {
-                    navController.popBackStack()
-                },
-                onSent = {
-                    navController.popBackStack()
+        composable(
+            route = "compose?draft={draft}",
+            arguments = listOf(navArgument("draft") { 
+                type = NavType.StringType 
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val draftFilename = backStackEntry.arguments?.getString("draft")
+            val mailViewModel: com.mailsystem.ui.viewmodel.MailViewModel = viewModel()
+            
+            // State for draft loading
+            var initialTo by remember { mutableStateOf("") }
+            var initialSubject by remember { mutableStateOf("") }
+            var initialContent by remember { mutableStateOf("") }
+            var isLoading by remember { mutableStateOf(draftFilename != null) }
+
+            LaunchedEffect(draftFilename) {
+                if (draftFilename != null) {
+                    mailViewModel.readDraft(draftFilename) { to, subject, body ->
+                        initialTo = to
+                        initialSubject = subject
+                        initialContent = body
+                        isLoading = false
+                    }
                 }
-            )
+            }
+
+            if (isLoading) {
+                // Show loading indicator or just empty screen while loading
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    // You might want a loading spinner here
+                }
+            } else {
+                ComposeScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onSent = {
+                        navController.popBackStack()
+                    },
+                    initialTo = initialTo,
+                    initialSubject = initialSubject,
+                    initialContent = initialContent,
+                    draftFilename = draftFilename,
+                    mailViewModel = mailViewModel
+                )
+            }
         }
 
         composable("profile") {

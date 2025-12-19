@@ -18,6 +18,38 @@ interface ApiService {
     
     // 邮件功能已改为直接使用 SMTP/POP3 协议，不再通过 HTTP API
     
+    // 新增：已发送邮件（通过 REST API 获取，因为 POP3 不支持已发送文件夹）
+    @GET("mail/sent/list")
+    suspend fun getSentMails(@Header("Authorization") token: String): Response<MailListResponse>
+    
+    @GET("mail/sent/read/{filename}")
+    suspend fun readSentMail(
+        @Path("filename") filename: String,
+        @Header("Authorization") token: String
+    ): Response<MailContentResponse>
+
+    // 草稿箱功能
+    @GET("mail/draft/list")
+    suspend fun getDraftList(@Header("Authorization") token: String): Response<MailListResponse>
+
+    @GET("mail/draft/read/{filename}")
+    suspend fun readDraft(
+        @Path("filename") filename: String,
+        @Header("Authorization") token: String
+    ): Response<MailContentResponse>
+
+    @POST("mail/draft/save")
+    suspend fun saveDraft(
+        @Body request: SaveDraftRequest,
+        @Header("Authorization") token: String
+    ): Response<SaveDraftResponse>
+
+    @DELETE("mail/draft/delete/{filename}")
+    suspend fun deleteDraft(
+        @Path("filename") filename: String,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
     // 管理员
     @GET("admin/users")
     suspend fun getUsers(@Header("Authorization") token: String): Response<List<User>>

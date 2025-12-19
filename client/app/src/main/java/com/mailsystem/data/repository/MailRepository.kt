@@ -186,6 +186,95 @@ class MailRepository(private val userPreferences: UserPreferences) {
         }
     }
 
+    suspend fun getSentMails(): Result<List<Mail>> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getSentMails("Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.mails)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun readSentMail(filename: String): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.readSentMail(filename, "Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.content)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 草稿箱功能
+    suspend fun getDraftList(): Result<List<Mail>> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getDraftList("Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.mails)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun readDraft(filename: String): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.readDraft(filename, "Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.content)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveDraft(to: String, subject: String, body: String, filename: String? = null): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.saveDraft(
+                SaveDraftRequest(to, subject, body, filename),
+                "Bearer $token"
+            )
+            if (response.isSuccessful && response.body() != null && response.body()!!.success) {
+                Result.success(response.body()!!.filename)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteDraft(filename: String): Result<Unit> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.deleteDraft(filename, "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+
     // 管理员相关方法（无修改，保持原样）
     suspend fun getUsers(): Result<List<User>> {
         return try {

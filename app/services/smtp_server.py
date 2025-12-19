@@ -115,6 +115,18 @@ class SMTPServer:
                     except Exception as e:
                         LogService.log_smtp(f"保存邮件失败: {e}", client_addr)
                 
+                # 保存邮件到发件人的发件箱
+                try:
+                    sent_path = MailStorageService.save_sent_mail(
+                        from_addr=session.mail_from,
+                        to_addrs=session.rcpt_to,
+                        subject=subject,
+                        body=body
+                    )
+                    LogService.log_smtp(f"已发送邮件保存: {sent_path}", client_addr)
+                except Exception as e:
+                    LogService.log_smtp(f"保存已发送邮件失败: {e}", client_addr)
+
                 # 重置会话
                 session.mail_from = None
                 session.rcpt_to = []

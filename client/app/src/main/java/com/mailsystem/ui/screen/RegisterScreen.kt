@@ -19,7 +19,9 @@ fun RegisterScreen(
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isAdmin by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     
     val registerState by viewModel.registerState.collectAsState()
     
@@ -55,12 +57,47 @@ fun RegisterScreen(
         
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = { 
+                password = it
+                if (confirmPassword.isNotBlank() && it != confirmPassword) {
+                    errorMessage = "两次输入的密码不一致"
+                } else {
+                    errorMessage = null
+                }
+            },
             label = { Text("密码") },
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true
         )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = confirmPassword,
+            onValueChange = { 
+                confirmPassword = it
+                if (password.isNotBlank() && it != password) {
+                    errorMessage = "两次输入的密码不一致"
+                } else {
+                    errorMessage = null
+                }
+            },
+            label = { Text("确认密码") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            isError = errorMessage != null
+        )
+        
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.Start).padding(start = 8.dp, top = 4.dp)
+            )
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -79,11 +116,15 @@ fun RegisterScreen(
         
         Button(
             onClick = {
-                val role = if (isAdmin) "admin" else "user"
-                viewModel.register(username, password, role)
+                if (password == confirmPassword) {
+                    val role = if (isAdmin) "admin" else "user"
+                    viewModel.register(username, password, role)
+                } else {
+                    errorMessage = "两次输入的密码不一致"
+                }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = username.isNotBlank() && password.isNotBlank() && registerState !is RegisterState.Loading
+            enabled = username.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() && errorMessage == null && registerState !is RegisterState.Loading
         ) {
             if (registerState is RegisterState.Loading) {
                 CircularProgressIndicator(

@@ -1,6 +1,6 @@
-#Thu Dec 18 13:34:09 CST 2025
-base.0=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeExtDexDebugAndroidTest\\classes.dex
-base.1=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeProjectDexDebugAndroidTest\\0\\classes.dex
+#Fri Dec 19 08:13:57 CST 2025
+base.0=C\:\\Users\\ankar\\Desktop\\MailSystem\\client\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeExtDexDebugAndroidTest\\classes.dex
+base.1=C\:\\Users\\ankar\\Desktop\\MailSystem\\client\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeProjectDexDebugAndroidTest\\0\\classes.dex
 path.0=classes.dex
 path.1=0/classes.dex
 renamed.0=classes.dex

@@ -16,21 +16,35 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mailsystem.data.protocol.SmtpClient  // 新增：导入SMTP客户端
 import com.mailsystem.ui.viewmodel.MailViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeScreen(
     onBack: () -> Unit,
     onSent: () -> Unit,
+    initialTo: String = "",
+    initialSubject: String = "",
+    initialContent: String = "",
+    draftFilename: String? = null,
     mailViewModel: MailViewModel = viewModel()
 ) {
-    var recipient by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var recipient by remember { mutableStateOf(initialTo) }
+    var subject by remember { mutableStateOf(initialSubject) }
+    var content by remember { mutableStateOf(initialContent) }
     var isSending by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
+    var showSaveDraftDialog by remember { mutableStateOf(false) }
+    var showSaveSuccessDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var currentDraftFilename by remember { mutableStateOf(draftFilename) }
+
+    // Check if content has changed from initial values
+    val hasChanges by derivedStateOf {
+        recipient != initialTo || subject != initialSubject || content != initialContent
+    }
 
     // ========== 新增：SMTP客户端实例（用于格式校验） ==========
     val smtpClient = remember { SmtpClient() }
@@ -39,16 +53,54 @@ fun ComposeScreen(
         smtpClient.isEmailValid(recipient)
     }
 
+    val scope = rememberCoroutineScope()
+
+    // Save Draft Logic
+    val saveDraft = {
+        isSaving = true
+        scope.launch {
+            try {
+                val result = mailViewModel.saveDraft(recipient, subject, content, currentDraftFilename)
+                if (result.isSuccess) {
+                    currentDraftFilename = result.getOrNull()
+                    showSaveSuccessDialog = true
+                } else {
+                    errorMessage = result.exceptionOrNull()?.message ?: "保存草稿失败"
+                    showErrorDialog = true
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "保存草稿失败"
+                showErrorDialog = true
+            } finally {
+                isSaving = false
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("写邮件") },
+                title = { Text(if (currentDraftFilename != null) "编辑草稿" else "写邮件") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (hasChanges && !showSuccessDialog) {
+                            showSaveDraftDialog = true
+                        } else {
+                            onBack()
+                        }
+                    }) {
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
                 actions = {
+                    // Save Draft Button
+                    TextButton(
+                        onClick = { saveDraft() },
+                        enabled = !isSending && !isSaving
+                    ) {
+                        Text("存草稿")
+                    }
+
                     IconButton(
                         onClick = {
                             if (recipient.isNotBlank() && subject.isNotBlank() && content.isNotBlank()) {
@@ -153,6 +205,14 @@ fun ComposeScreen(
         if (isSending) {
             try {
                 mailViewModel.sendMail(recipient, subject, content)
+                // If sent successfully, delete the draft if it exists
+                if (currentDraftFilename != null) {
+                    try {
+                        mailViewModel.deleteDraft(currentDraftFilename!!)
+                    } catch (e: Exception) {
+                        // Ignore deletion error, sending was successful
+                    }
+                }
                 isSending = false
                 showSuccessDialog = true
             } catch (e: Exception) {

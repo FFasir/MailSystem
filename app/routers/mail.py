@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from app.services.auth_service import AuthService
 from app.services.mail_storage import MailStorageService
 from app.services.smtp_client import SMTPClient
-from app.schemas import MessageResponse, SendMailRequest
+from app.schemas import MessageResponse, SendMailRequest, SaveDraftRequest
 from app.config import MAIL_DOMAIN
 from typing import List
 from app.utils.validators import is_valid_email, extract_username
@@ -28,6 +28,69 @@ def verify_user_token(authorization: str = Header(None)) -> dict:
     
     return user_info
 
+# ... (imports)
+
+@router.get("/draft/list")
+async def list_drafts(user_info: dict = Depends(verify_user_token)):
+    """获取当前用户的草稿列表"""
+    username = user_info.get("username")
+    drafts = MailStorageService.list_drafts(username)
+    
+    return {
+        "success": True,
+        "count": len(drafts),
+        "mails": drafts
+    }
+
+
+@router.get("/draft/read/{filename}")
+async def read_draft(filename: str, user_info: dict = Depends(verify_user_token)):
+    """读取草稿内容"""
+    username = user_info.get("username")
+    content = MailStorageService.read_draft(username, filename)
+    
+    if not content:
+        raise HTTPException(status_code=404, detail="草稿不存在")
+    
+    return {
+        "success": True,
+        "filename": filename,
+        "content": content
+    }
+
+
+@router.post("/draft/save")
+async def save_draft(
+    request: SaveDraftRequest,
+    user_info: dict = Depends(verify_user_token)
+):
+    """保存草稿"""
+    username = user_info.get("username")
+    filename = MailStorageService.save_draft(
+        username=username,
+        to_addr=request.to_addr,
+        subject=request.subject,
+        body=request.body,
+        filename=request.filename
+    )
+    
+    return {
+        "success": True,
+        "message": "草稿已保存",
+        "filename": filename
+    }
+
+
+@router.delete("/draft/delete/{filename}", response_model=MessageResponse)
+async def delete_draft(filename: str, user_info: dict = Depends(verify_user_token)):
+    """删除草稿"""
+    username = user_info.get("username")
+    success = MailStorageService.delete_draft(username, filename)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="草稿不存在")
+    
+    return MessageResponse(success=True, message=f"草稿 {filename} 已删除")
 
 @router.get("/list")
 async def list_mails(user_info: dict = Depends(verify_user_token)):
@@ -42,11 +105,40 @@ async def list_mails(user_info: dict = Depends(verify_user_token)):
     }
 
 
+@router.get("/sent/list")
+async def list_sent_mails(user_info: dict = Depends(verify_user_token)):
+    """获取当前用户的已发送邮件列表"""
+    username = user_info.get("username")
+    mails = MailStorageService.list_sent_mails(username)
+    
+    return {
+        "success": True,
+        "count": len(mails),
+        "mails": mails
+    }
+
+
 @router.get("/read/{filename}")
 async def read_mail(filename: str, user_info: dict = Depends(verify_user_token)):
     """读取邮件内容"""
     username = user_info.get("username")
     content = MailStorageService.read_mail(username, filename)
+    
+    if not content:
+        raise HTTPException(status_code=404, detail="邮件不存在")
+    
+    return {
+        "success": True,
+        "filename": filename,
+        "content": content
+    }
+
+
+@router.get("/sent/read/{filename}")
+async def read_sent_mail(filename: str, user_info: dict = Depends(verify_user_token)):
+    """读取已发送邮件内容"""
+    username = user_info.get("username")
+    content = MailStorageService.read_sent_mail(username, filename)
     
     if not content:
         raise HTTPException(status_code=404, detail="邮件不存在")

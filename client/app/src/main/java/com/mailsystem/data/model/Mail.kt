@@ -35,6 +35,20 @@ data class SendMailRequest(
     val subject: String,
     val body: String
 )
+
+data class SaveDraftRequest(
+    val to_addr: String,
+    val subject: String,
+    val body: String,
+    val filename: String? = null
+)
+
+data class SaveDraftResponse(
+    val success: Boolean,
+    val message: String,
+    val filename: String
+)
+
 /*
 // 补充MessageResponse（如果没有的话）
 data class MessageResponse(
