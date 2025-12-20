@@ -1,9 +1,10 @@
 """
-SMTP 客户端 - 支持本地SMTP与外部SMTP(如163/QQ)发送
+SMTP 客户端 - 支持本地SMTP与外部SMTP(如163/QQ)发送，支持附件
 """
 import asyncio
 import smtplib
 from email.message import EmailMessage
+from pathlib import Path
 from app.config import (
     SMTP_HOST,
     SMTP_PORT,
@@ -29,7 +30,7 @@ class SMTPClient:
         self.host = host
         self.port = port
 
-    async def send_mail(self, from_addr: str, to_addr: str, subject: str, body: str, reply_to_filename: str = None) -> bool:
+    async def send_mail(self, from_addr: str, to_addr: str, subject: str, body: str, reply_to_filename: str = None, attachments: list = None) -> bool:
         """
         通过 SMTP 协议发送邮件
 
@@ -38,7 +39,8 @@ class SMTPClient:
             to_addr: 收件人地址
             subject: 邮件主题
             body: 邮件正文
-            reply_to_filename: 可选，回复的原始邮件文件名（用于建立回复关联）
+            reply_to_filename: 可选，回复的原始邮件文件名
+            attachments: 可选，附件列表 [{"file_path": "path/to/file", "filename": "original_name.txt"}, ...]
 
         Returns:
             是否发送成功
@@ -56,6 +58,21 @@ class SMTPClient:
                     msg["References"] = reply_to_filename
                 msg.set_content(body)
 
+                # 添加附件
+                if attachments:
+                    for att in attachments:
+                        try:
+                            with open(att["file_path"], "rb") as f:
+                                content = f.read()
+                                msg.add_attachment(
+                                    content,
+                                    maintype="application",
+                                    subtype="octet-stream",
+                                    filename=att["filename"]
+                                )
+                        except Exception as e:
+                            LogService.log_system(f"添加附件失败: {att['filename']}, 错误: {e}")
+
                 if SMTP_USE_SSL:
                     with smtplib.SMTP_SSL(self.host, self.port) as server:
                         server.login(SMTP_USER, SMTP_PASS)
@@ -72,7 +89,7 @@ class SMTPClient:
                 LogService.log_system(f"外部SMTP发送成功: {SMTP_USER} -> {to_addr}")
                 return True
 
-            # 否则回退到本地占位SMTP（无认证）
+            # 否则回退到本地占位SMTP（无认证，不支持附件）
             reader, writer = await asyncio.open_connection(self.host, self.port)
             response = await reader.readline()
             LogService.log_system(f"本地SMTP连接: {response.decode().strip()}")

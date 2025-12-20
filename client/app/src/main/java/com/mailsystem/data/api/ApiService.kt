@@ -1,6 +1,8 @@
 package com.mailsystem.data.api
 
 import com.mailsystem.data.model.*
+import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -229,7 +231,12 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<MessageResponse>
 
-    // sendMail 已移除 - Android 直接使用 SMTP 协议发送邮件
+    // 发送邮件 - 通过后端 REST API（后端会处理外部SMTP）
+    @POST("mail/send")
+    suspend fun sendMail(
+        @Body request: SendMailRequest,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
 
     // 回复邮件API
     @POST("mail/reply")
@@ -251,4 +258,27 @@ interface ApiService {
         @Path("filename") filename: String,
         @Header("Authorization") token: String
     ): Response<ReplyChainResponse>
+
+    // ==================== 附件相关 API ====================
+
+    @Multipart
+    @POST("mail/attachment/upload/{mail_filename}")
+    suspend fun uploadAttachment(
+        @Path("mail_filename") mailFilename: String,
+        @Part file: MultipartBody.Part,
+        @Header("Authorization") token: String
+    ): Response<UploadAttachmentResponse>
+
+    @GET("mail/attachment/{mail_filename}/{attachment_filename}")
+    suspend fun downloadAttachment(
+        @Path("mail_filename") mailFilename: String,
+        @Path("attachment_filename") attachmentFilename: String,
+        @Header("Authorization") token: String
+    ): Response<ResponseBody>
+
+    @GET("mail/attachments/{mail_filename}")
+    suspend fun getAttachments(
+        @Path("mail_filename") mailFilename: String,
+        @Header("Authorization") token: String
+    ): Response<AttachmentsResponse>
 }

@@ -330,3 +330,78 @@ class MailStorageService:
                 }
         except Exception:
             return {"in_reply_to": None, "is_reply": False}
+
+    @staticmethod
+    def get_attachment_dir(username: str, mail_filename: str) -> Path:
+        """获取邮件的附件目录"""
+        # 邮件文件名为 20251220_121857_613099.txt
+        # 附件目录为 mailbox/username/attachments/20251220_121857_613099/
+        mail_name = mail_filename.replace(".txt", "")
+        attach_dir = Path(MailStorageService.BASE_DIR) / username / "attachments" / mail_name
+        return attach_dir
+
+    @staticmethod
+    def ensure_attachment_dir(username: str, mail_filename: str) -> Path:
+        """确保邮件的附件目录存在"""
+        attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+        attach_dir.mkdir(parents=True, exist_ok=True)
+        return attach_dir
+
+    @staticmethod
+    def save_attachment(username: str, mail_filename: str, file_content: bytes, original_filename: str) -> bool:
+        """保存附件文件"""
+        try:
+            attach_dir = MailStorageService.ensure_attachment_dir(username, mail_filename)
+            filepath = attach_dir / original_filename
+            with open(filepath, "wb") as f:
+                f.write(file_content)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def get_attachments(username: str, mail_filename: str) -> list:
+        """获取邮件的所有附件信息"""
+        attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+        if not attach_dir.exists():
+            return []
+        
+        attachments = []
+        for file in attach_dir.glob("*"):
+            if file.is_file():
+                attachments.append({
+                    "filename": file.name,
+                    "size": file.stat().st_size,
+                    "content_type": "application/octet-stream"  # 默认二进制
+                })
+        return attachments
+
+    @staticmethod
+    def read_attachment(username: str, mail_filename: str, attachment_filename: str) -> bytes:
+        """读取附件文件"""
+        attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+        filepath = attach_dir / attachment_filename
+        
+        if not filepath.exists():
+            return None
+        
+        try:
+            with open(filepath, "rb") as f:
+                return f.read()
+        except Exception:
+            return None
+
+    @staticmethod
+    def delete_attachment(username: str, mail_filename: str, attachment_filename: str) -> bool:
+        """删除附件"""
+        try:
+            attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+            filepath = attach_dir / attachment_filename
+            
+            if filepath.exists():
+                filepath.unlink()
+                return True
+            return False
+        except Exception:
+            return False
+

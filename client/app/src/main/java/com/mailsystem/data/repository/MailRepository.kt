@@ -7,6 +7,10 @@ import com.mailsystem.data.protocol.SmtpClient
 import com.mailsystem.data.protocol.Pop3Client
 import kotlinx.coroutines.flow.first
 import java.util.regex.Pattern  // 新增：导入正则工具类
+import okhttp3.MediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 
 class MailRepository(private val userPreferences: UserPreferences) {
 
@@ -538,32 +542,30 @@ class MailRepository(private val userPreferences: UserPreferences) {
         }
     }
 
-    // 发送邮件 - 通过 SMTP 协议（核心修改：校验收件人+统一发件人域名）
+    // 发送邮件 - 通过后端 REST API（后端处理外部SMTP发送）
     suspend fun sendMail(to: String, subject: String, content: String): Result<Unit> {
         return try {
-            val username = userPreferences.username.first() ?: return Result.failure(Exception("未登录，请先登录"))
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
 
-            // ========== 3. 新增：发送前校验收件人邮箱格式 ==========
+            // 校验收件人邮箱格式
             if (!isEmailValid(to)) {
                 return Result.failure(Exception("发送失败：收件人邮箱格式无效（需填写 xxx@xxx.xxx 格式）"))
             }
 
-            // ========== 4. 修改：发件人地址用 username + 统一域名（替换localhost） ==========
-            val fromAddr = "$username@$MAIL_DOMAIN"
+            // 通过后端 REST API 发送邮件
+            val request = SendMailRequest(
+                to_addr = to,
+                subject = subject,
+                body = content
+            )
+            val response = api.sendMail(request, "Bearer $token")
 
-            // 使用 SMTP 协议发送邮件
-            val result = smtpClient.sendMail(fromAddr, to, subject, content)
-
-            if (result.isSuccess) {
+            if (response.isSuccessful && response.body()?.success == true) {
                 Result.success(Unit)
             } else {
-                val errorMsg = result.exceptionOrNull()?.message ?: "发送失败"
+                val errorMsg = response.body()?.message ?: "发送失败"
                 Result.failure(Exception(errorMsg))
             }
-        } catch (e: java.net.UnknownHostException) {
-            Result.failure(Exception("无法连接到SMTP服务器，请检查网络设置"))
-        } catch (e: java.net.SocketTimeoutException) {
-            Result.failure(Exception("连接SMTP服务器超时，请稍后重试"))
         } catch (e: Exception) {
             Result.failure(Exception("发送邮件失败: ${e.message ?: "未知错误"}"))
         }
@@ -847,6 +849,67 @@ class MailRepository(private val userPreferences: UserPreferences) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    // ==================== 附件相关 ====================
+
+    suspend fun uploadAttachment(mailFilename: String, fileName: String, fileContent: ByteArray): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+
+            // 检查大小（10MB）
+            if (fileContent.size > 10 * 1024 * 1024) {
+                return Result.failure(Exception("文件过大，最大限制10MB"))
+            }
+
+            // 创建 MultipartBody.Part
+            val mediaType = "application/octet-stream".toMediaType()
+            val body = fileContent.toRequestBody(mediaType)
+            val part = MultipartBody.Part.createFormData("file", fileName, body)
+
+            val response = api.uploadAttachment(mailFilename, part, "Bearer $token")
+
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.filename)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: "上传失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("上传附件失败: ${e.message}"))
+        }
+    }
+
+    suspend fun downloadAttachment(mailFilename: String, attachmentFilename: String): Result<ByteArray> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            
+            val response = api.downloadAttachment(mailFilename, attachmentFilename, "Bearer $token")
+            
+            if (response.isSuccessful) {
+                val bytes = response.body()?.bytes() ?: ByteArray(0)
+                Result.success(bytes)
+            } else {
+                Result.failure(Exception("下载失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("下载附件失败: ${e.message}"))
+        }
+    }
+
+    suspend fun getAttachments(mailFilename: String): Result<List<AttachmentInfo>> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            
+            val response = api.getAttachments(mailFilename, "Bearer $token")
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.attachments)
+            } else {
+                Result.failure(Exception("获取附件列表失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("获取附件列表失败: ${e.message}"))
         }
     }
 }

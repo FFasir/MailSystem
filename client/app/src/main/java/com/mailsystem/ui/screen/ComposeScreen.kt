@@ -1,6 +1,8 @@
 package com.mailsystem.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,15 +10,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mailsystem.data.protocol.SmtpClient  // 新增：导入SMTP客户端
+import com.mailsystem.data.protocol.SmtpClient
 import com.mailsystem.ui.viewmodel.MailViewModel
 import kotlinx.coroutines.launch
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +51,27 @@ fun ComposeScreen(
     var showSaveSuccessDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var currentDraftFilename by remember { mutableStateOf(draftFilename) }
+    
+    // ========== 新增：附件管理 ==========
+    var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var isUploadingAttachments by remember { mutableStateOf(false) }
+    var uploadProgress by remember { mutableStateOf(0) }
+    var fileUploadError by remember { mutableStateOf("") }
+    
+    val context = LocalContext.current
+    
+    // 文件选择器
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            if (selectedFiles.size < 5) {
+                selectedFiles = selectedFiles + it
+            } else {
+                fileUploadError = "最多只能添加5个附件"
+            }
+        }
+    }
 
     // Check if content has changed from initial values
     val hasChanges by derivedStateOf {
@@ -187,38 +219,148 @@ fun ComposeScreen(
                         enabled = !isSending,
                         maxLines = 12
                     )
+                    // ========== 新增：附件选择区域 ==========
+                    // 附件按钮
+                    Button(
+                        onClick = { filePickerLauncher.launch("*/*") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        enabled = !isSending && !isUploadingAttachments && selectedFiles.size < 5
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "添加附件", modifier = Modifier.padding(end = 8.dp))
+                        Text("添加附件(${selectedFiles.size}/5)")
+                    }
                     
-                    if (isSending) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.primary
+                    // 显示文件上传错误
+                    if (fileUploadError.isNotBlank()) {
+                        Text(
+                            text = fileUploadError,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
+                    }
+                    
+                    // 显示已选择的附件
+                    if (selectedFiles.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("已选择附件:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                selectedFiles.forEachIndexed { index, uri ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = uri.lastPathSegment ?: "文件$index",
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                selectedFiles = selectedFiles.filterIndexed { i, _ -> i != index }
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
     
-    // 发送邮件逻辑
+    // 发送邮件逻辑（包括附件上传）
     LaunchedEffect(isSending) {
         if (isSending) {
-            try {
-                mailViewModel.sendMail(recipient, subject, content)
-                // If sent successfully, delete the draft if it exists
-                if (currentDraftFilename != null) {
-                    try {
-                        mailViewModel.deleteDraft(currentDraftFilename!!)
-                    } catch (e: Exception) {
-                        // Ignore deletion error, sending was successful
+            scope.launch {
+                try {
+                    // 第1步：先发送邮件
+                    mailViewModel.sendMail(recipient, subject, content)
+                    
+                    // 第2步：如果有附件，上传附件
+                    if (selectedFiles.isNotEmpty()) {
+                        isUploadingAttachments = true
+                        // 生成临时邮件文件名（由发送时间戳构成）
+                        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
+                        val mailFilename = "${timestamp}.txt"
+                        
+                        // 等待邮件文件在服务器生成（延迟1秒）
+                        kotlinx.coroutines.delay(1000)
+                        
+                        selectedFiles.forEachIndexed { index, uri ->
+                            try {
+                                // 读取文件内容
+                                val fileInputStream = context.contentResolver.openInputStream(uri)
+                                val fileContent = fileInputStream?.readBytes() ?: byteArrayOf()
+                                fileInputStream?.close()
+                                
+                                // 获取文件名
+                                val fileName = if (uri.scheme == "content") {
+                                    val cursor = context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+                                    cursor?.use {
+                                        if (it.moveToFirst()) {
+                                            it.getString(it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME))
+                                        } else {
+                                            "attachment_${index + 1}"
+                                        }
+                                    } ?: "attachment_${index + 1}"
+                                } else {
+                                    uri.lastPathSegment ?: "attachment_${index + 1}"
+                                }
+                                
+                                // 上传附件
+                                uploadProgress = ((index + 1) * 100) / selectedFiles.size
+                                mailViewModel.uploadAttachment(mailFilename, fileName, fileContent)
+                            } catch (e: Exception) {
+                                fileUploadError = "上传文件失败: ${e.message}"
+                            }
+                        }
+                        isUploadingAttachments = false
                     }
+                    
+                    // 第3步：删除草稿（如果存在）
+                    if (currentDraftFilename != null) {
+                        try {
+                            mailViewModel.deleteDraft(currentDraftFilename!!)
+                        } catch (e: Exception) {
+                            // 忽略删除错误
+                        }
+                    }
+                    
+                    // 成功
+                    isSending = false
+                    selectedFiles = emptyList()  // 清空已选文件
+                    uploadProgress = 0
+                    fileUploadError = ""
+                    showSuccessDialog = true
+                } catch (e: Exception) {
+                    isSending = false
+                    isUploadingAttachments = false
+                    errorMessage = e.message ?: "发送失败"
+                    showErrorDialog = true
                 }
-                isSending = false
-                showSuccessDialog = true
-            } catch (e: Exception) {
-                isSending = false
-                errorMessage = e.message ?: "发送失败"
-                showErrorDialog = true
             }
         }
     }

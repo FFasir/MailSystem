@@ -520,4 +520,35 @@ class MailViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    
+    // ========== 新增：附件管理方法 ==========
+    fun uploadAttachment(mailFilename: String, fileName: String, fileContent: ByteArray) {
+        viewModelScope.launch {
+            try {
+                val result = repository.uploadAttachment(mailFilename, fileName, fileContent)
+                if (result.isFailure) {
+                    _error.value = result.exceptionOrNull()?.message ?: "上传失败"
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "上传失败"
+            }
+        }
+    }
+    
+    suspend fun downloadAttachment(mailFilename: String, attachmentFilename: String): Result<ByteArray> {
+        return repository.downloadAttachment(mailFilename, attachmentFilename)
+    }
+    
+    suspend fun getAttachments(mailFilename: String): Result<List<com.mailsystem.data.model.AttachmentInfo>> {
+        return repository.getAttachments(mailFilename).let { result ->
+            if (result.isSuccess) {
+                Result.success(result.getOrNull() ?: emptyList())
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("获取附件失败"))
+            }
+        }
+    }
+    
+    private val _downloadedFile = MutableStateFlow<ByteArray?>(null)
+    val downloadedFile: StateFlow<ByteArray?> = _downloadedFile
 }

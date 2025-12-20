@@ -5,3 +5,4 @@ email-validator==2.2.0
 aliyun-python-sdk-core==2.15.0
 aliyun-python-sdk-dysmsapi==2.1.2
 python-dotenv==1.0.1
+python-multipart==0.0.6

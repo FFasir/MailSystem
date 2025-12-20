@@ -77,11 +77,31 @@ data class ReplyChainResponse(
     val chain: List<ReplyChainItem>
 )
 
-/*
-// 补充MessageResponse（如果没有的话）
-data class MessageResponse(
-    val success: Boolean,
-    val message: String
+// ==================== 附件相关模型 ====================
+
+data class AttachmentInfo(
+    val filename: String,
+    val size: Int,
+    val content_type: String
 )
 
- */
+data class UploadAttachmentResponse(
+    val success: Boolean,
+    val message: String,
+    val filename: String,
+    val size: Int
+)
+
+data class AttachmentsResponse(
+    val success: Boolean,
+    val filename: String,
+    val attachments: List<AttachmentInfo> = emptyList(),
+    val count: Int = 0
+)
+
+data class MailDetailResponse(
+    val success: Boolean,
+    val filename: String,
+    val content: String,
+    val attachments: List<AttachmentInfo> = emptyList()
+)

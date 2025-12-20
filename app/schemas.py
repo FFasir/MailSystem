@@ -92,6 +92,24 @@ class SendMailRequest(BaseModel):
     subject: str
     body: str
 
+
+class AttachmentInfo(BaseModel):
+    """附件信息"""
+    filename: str
+    size: int
+    content_type: str
+
+
+class MailDetailResponse(BaseModel):
+    """邮件详情响应（含附件）"""
+    success: bool
+    filename: str
+    content: str
+    attachments: list[AttachmentInfo] = []
+    from_addr: Optional[str] = None
+    to_addr: Optional[str] = None
+    subject: Optional[str] = None
+
 class ReplyMailRequest(BaseModel):
     """回复邮件请求"""
     to_addr: str

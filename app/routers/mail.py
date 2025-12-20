@@ -1,7 +1,8 @@
 """
-邮件路由 - 邮件列表、读取、删除、发送
+邮件路由 - 邮件列表、读取、删除、发送、附件管理
 """
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
+from fastapi.responses import FileResponse
 from app.services.auth_service import AuthService
 from app.services.mail_storage import MailStorageService
 from app.services.smtp_client import SMTPClient
@@ -11,6 +12,7 @@ from typing import List
 from app.utils.validators import is_valid_email, extract_username
 from app.db import SessionLocal
 from app.models import User
+import os
 
 router = APIRouter(prefix="/mail", tags=["邮件"])
 
@@ -120,33 +122,41 @@ async def list_sent_mails(user_info: dict = Depends(verify_user_token)):
 
 @router.get("/read/{filename}")
 async def read_mail(filename: str, user_info: dict = Depends(verify_user_token)):
-    """读取邮件内容"""
+    """读取邮件内容及附件"""
     username = user_info.get("username")
     content = MailStorageService.read_mail(username, filename)
 
     if not content:
         raise HTTPException(status_code=404, detail="邮件不存在")
 
+    # 获取附件信息
+    attachments = MailStorageService.get_attachments(username, filename)
+
     return {
         "success": True,
         "filename": filename,
-        "content": content
+        "content": content,
+        "attachments": attachments
     }
 
 
 @router.get("/sent/read/{filename}")
 async def read_sent_mail(filename: str, user_info: dict = Depends(verify_user_token)):
-    """读取已发送邮件内容"""
+    """读取已发送邮件内容及附件"""
     username = user_info.get("username")
     content = MailStorageService.read_sent_mail(username, filename)
 
     if not content:
         raise HTTPException(status_code=404, detail="邮件不存在")
 
+    # 获取附件信息
+    attachments = MailStorageService.get_attachments(username, filename)
+
     return {
         "success": True,
         "filename": filename,
-        "content": content
+        "content": content,
+        "attachments": attachments
     }
 
 
@@ -197,9 +207,12 @@ async def send_mail(
     user_info: dict = Depends(verify_user_token)
 ):
     """
-    发送邮件（通过 SMTP 协议）
-    Android 客户端调用此接口，后端通过 SMTP 协议发送到本地 SMTP 服务器
+    发送邮件
+    - 内部邮箱 (mail.com): 直接保存到接收者邮箱目录
+    - 外部邮箱: 通过外部 SMTP 发送
     """
+    from app.services.log_service import LogService
+    
     # 验证收件人邮箱格式
     if not is_valid_email(request.to_addr):
         raise HTTPException(status_code=400, detail="收件人邮箱格式无效")
@@ -216,30 +229,50 @@ async def send_mail(
             raise HTTPException(status_code=404, detail="收件人不存在")
     db.close()
 
-    # 外部SMTP发信时使用认证账户作为发件人以通过服务商校验
     from app.config import SMTP_USER
-    username = user_info.get("username")
-    from_addr = SMTP_USER or f"{username}@{MAIL_DOMAIN}"
+    sender_username = user_info.get("username")
+    
+    # 根据收件人域名选择发送方式
+    if domain == MAIL_DOMAIN:
+        # 内部邮箱：直接保存到接收者邮箱目录
+        from_addr = f"{sender_username}@{MAIL_DOMAIN}"
+        
+        # 直接使用 MailStorageService 保存邮件
+        filepath = MailStorageService.save_mail(
+            to_addr=request.to_addr,
+            from_addr=from_addr,
+            subject=request.subject,
+            body=request.body
+        )
+        
+        LogService.log_system(f"邮件已保存: {from_addr} -> {request.to_addr}")
+        
+        return MessageResponse(
+            success=True,
+            message=f"邮件已发送到 {request.to_addr}"
+        )
+    else:
+        # 外部邮箱：使用 SMTP 发送
+        from_addr = SMTP_USER or f"{sender_username}@{MAIL_DOMAIN}"
+        
+        # 创建 SMTP 客户端
+        smtp_client = SMTPClient()
 
+        # 通过 SMTP 协议发送邮件
+        success = await smtp_client.send_mail(
+            from_addr=from_addr,
+            to_addr=request.to_addr,
+            subject=request.subject,
+            body=request.body
+        )
 
-    # 创建 SMTP 客户端
-    smtp_client = SMTPClient()
+        if not success:
+            raise HTTPException(status_code=500, detail="邮件发送失败")
 
-    # 通过 SMTP 协议发送邮件
-    success = await smtp_client.send_mail(
-        from_addr=from_addr,
-        to_addr=request.to_addr,
-        subject=request.subject,
-        body=request.body
-    )
-
-    if not success:
-        raise HTTPException(status_code=500, detail="邮件发送失败")
-
-    return MessageResponse(
-        success=True,
-        message=f"邮件已通过 SMTP 协议发送到 {request.to_addr}"
-    )
+        return MessageResponse(
+            success=True,
+            message=f"邮件已通过 SMTP 协议发送到 {request.to_addr}"
+        )
 
 
 @router.post("/reply", response_model=MessageResponse)
@@ -269,8 +302,7 @@ async def reply_mail(
 
     from app.config import SMTP_USER
     current_username = user_info.get("username")
-    from_addr = SMTP_USER or f"{current_username}@{MAIL_DOMAIN}"
-
+    
     # 验证不能回复自己的邮件
     to_username = extract_username(request.to_addr)
     if to_username == current_username:
@@ -299,22 +331,133 @@ async def reply_mail(
             if original_subject.startswith("Re:"):
                 original_subject = original_subject[3:].strip()
 
-    # 创建 SMTP 客户端
-    smtp_client = SMTPClient()
+    # 根据收件人域名选择发送方式
+    if domain == MAIL_DOMAIN:
+        # 内部邮箱：直接保存到接收者邮箱
+        from_addr = f"{current_username}@{MAIL_DOMAIN}"
+        
+        filepath = MailStorageService.save_mail(
+            to_addr=request.to_addr,
+            from_addr=from_addr,
+            subject=original_subject,
+            body=request.body,
+            reply_to_filename=reply_to_filename
+        )
+        
+        return MessageResponse(
+            success=True,
+            message=f"回复邮件已发送到 {request.to_addr}"
+        )
+    else:
+        # 外部邮箱：使用 SMTP 发送回复邮件
+        from_addr = SMTP_USER or f"{current_username}@{MAIL_DOMAIN}"
+        smtp_client = SMTPClient()
 
-    # 通过 SMTP 协议发送回复邮件（使用原主题，不添加"Re: "）
-    success = await smtp_client.send_mail(
-        from_addr=from_addr,
-        to_addr=request.to_addr,
-        subject=original_subject,  # 使用原主题，保持与原邮件一致
-        body=request.body,
-        reply_to_filename=reply_to_filename
+        # 通过 SMTP 协议发送回复邮件（使用原主题，不添加"Re: "）
+        success = await smtp_client.send_mail(
+            from_addr=from_addr,
+            to_addr=request.to_addr,
+            subject=original_subject,  # 使用原主题，保持与原邮件一致
+            body=request.body,
+            reply_to_filename=reply_to_filename
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="回复邮件发送失败")
+
+        return MessageResponse(
+            success=True,
+            message=f"回复邮件已通过 SMTP 协议发送到 {request.to_addr}"
+        )
+
+
+# ==================== 附件相关 API ====================
+
+@router.post("/attachment/upload/{mail_filename}")
+async def upload_attachment(
+    mail_filename: str,
+    file: UploadFile = File(...),
+    user_info: dict = Depends(verify_user_token)
+):
+    """上传邮件附件（在发送邮件前上传，保存到临时目录）"""
+    username = user_info.get("username")
+    
+    # 限制文件大小：10MB
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    content = await file.read()
+    
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail=f"文件过大，最大限制 {MAX_FILE_SIZE / 1024 / 1024}MB")
+    
+    # 保存附件
+    try:
+        success = MailStorageService.save_attachment(
+            username=username,
+            mail_filename=mail_filename,
+            file_content=content,
+            original_filename=file.filename
+        )
+        
+        if not success:
+            raise Exception("保存失败")
+        
+        return {
+            "success": True,
+            "message": "附件已上传",
+            "filename": file.filename,
+            "size": len(content)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"附件上传失败: {str(e)}")
+
+
+@router.get("/attachment/{mail_filename}/{attachment_filename}")
+async def download_attachment(
+    mail_filename: str,
+    attachment_filename: str,
+    user_info: dict = Depends(verify_user_token)
+):
+    """下载邮件附件"""
+    username = user_info.get("username")
+    
+    # 读取附件
+    content = MailStorageService.read_attachment(
+        username=username,
+        mail_filename=mail_filename,
+        attachment_filename=attachment_filename
+    )
+    
+    if not content:
+        raise HTTPException(status_code=404, detail="附件不存在")
+    
+    # 返回文件
+    attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+    filepath = attach_dir / attachment_filename
+    
+    return FileResponse(
+        path=filepath,
+        filename=attachment_filename,
+        media_type="application/octet-stream"
     )
 
-    if not success:
-        raise HTTPException(status_code=500, detail="回复邮件发送失败")
 
-    return MessageResponse(
-        success=True,
-        message=f"回复邮件已通过 SMTP 协议发送到 {request.to_addr}"
+@router.get("/attachments/{mail_filename}")
+async def get_attachments(
+    mail_filename: str,
+    user_info: dict = Depends(verify_user_token)
+):
+    """获取邮件的所有附件信息"""
+    username = user_info.get("username")
+    
+    attachments = MailStorageService.get_attachments(
+        username=username,
+        mail_filename=mail_filename
     )
+    
+    return {
+        "success": True,
+        "filename": mail_filename,
+        "attachments": attachments,
+        "count": len(attachments)
+    }
+

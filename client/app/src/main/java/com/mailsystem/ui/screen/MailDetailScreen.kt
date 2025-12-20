@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,11 @@ import com.mailsystem.data.model.ReplyTemplate
 import com.mailsystem.ui.viewmodel.MailViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import android.content.Context
+import android.os.Environment
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
+import com.mailsystem.data.model.AttachmentInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +44,13 @@ fun MailDetailScreen(
     val loading by mailViewModel.loading.collectAsState()
     val error by mailViewModel.error.collectAsState()
     val templates by mailViewModel.templates.collectAsState()
+    
+    // ========== 新增：附件管理 ==========
+    var attachments by remember { mutableStateOf<List<AttachmentInfo>>(emptyList()) }
+    var isLoadingAttachments by remember { mutableStateOf(false) }
+    var attachmentError by remember { mutableStateOf("") }
+    var isDownloadingAttachment by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -59,6 +72,21 @@ fun MailDetailScreen(
         } else {
             // If filename is not an integer, assume it's a sent mail filename
             mailViewModel.readSentMail(filename)
+        }
+        
+        // ========== 新增：加载附件 ==========
+        isLoadingAttachments = true
+        try {
+            val result = mailViewModel.getAttachments(filename)
+            if (result.isSuccess) {
+                attachments = result.getOrNull() ?: emptyList()
+            } else {
+                attachmentError = result.exceptionOrNull()?.message ?: "加载附件失败"
+            }
+        } catch (e: Exception) {
+            attachmentError = e.message ?: "加载附件失败"
+        } finally {
+            isLoadingAttachments = false
         }
     }
 
@@ -340,11 +368,105 @@ fun MailDetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 16.dp)
                     )
+                    
+                    // ========== 新增：附件显示区域 ==========
+                    if (attachments.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Divider()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "附件 (${attachments.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        
+                        attachments.forEach { attachment ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = attachment.filename,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                        Text(
+                                            text = formatFileSize(attachment.size),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                    
+                                    Button(
+                                        onClick = {
+                                            isDownloadingAttachment = true
+                                            scope.launch {
+                                                try {
+                                                    val result = mailViewModel.downloadAttachment(filename, attachment.filename)
+                                                    if (result.isSuccess) {
+                                                        val fileContent = result.getOrNull()
+                                                        if (fileContent != null) {
+                                                            // 保存文件到下载文件夹
+                                                            val downloadsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                                                            val file = File(downloadsDir, attachment.filename)
+                                                            file.writeBytes(fileContent)
+                                                            attachmentError = "文件已保存到: ${file.absolutePath}"
+                                                        }
+                                                    } else {
+                                                        attachmentError = result.exceptionOrNull()?.message ?: "下载失败"
+                                                    }
+                                                } catch (e: Exception) {
+                                                    attachmentError = e.message ?: "下载失败"
+                                                } finally {
+                                                    isDownloadingAttachment = false
+                                                }
+                                            }
+                                        },
+                                        enabled = !isDownloadingAttachment,
+                                        modifier = Modifier.size(height = 32.dp, width = 80.dp),
+                                        contentPadding = PaddingValues(4.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = "下载",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("下载", fontSize = MaterialTheme.typography.labelSmall.fontSize)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 附件加载或下载错误提示
+                    if (attachmentError.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = attachmentError,
+                            color = if (attachmentError.startsWith("文件已保存")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
             }
         }
     }
-
+    
     // 删除确认对话框
     if (showDeleteDialog) {
         AlertDialog(
@@ -739,3 +861,27 @@ fun MailDetailScreen(
         }
     }
 }
+
+// ========== 工具函数：格式化文件大小 ==========
+fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes <= 0 -> "0 B"
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${String.format("%.2f", bytes / 1024.0)} KB"
+        bytes < 1024 * 1024 * 1024 -> "${String.format("%.2f", bytes / (1024.0 * 1024))} MB"
+        else -> "${String.format("%.2f", bytes / (1024.0 * 1024 * 1024))} GB"
+    }
+}
+
+// ========== 顶层：文件大小格式化函数 ==========
+fun formatFileSize(bytes: Int): String {
+    val bytesLong = bytes.toLong()
+    return when {
+        bytesLong <= 0 -> "0 B"
+        bytesLong < 1024 -> "$bytesLong B"
+        bytesLong < 1024 * 1024 -> "${String.format("%.2f", bytesLong / 1024.0)} KB"
+        bytesLong < 1024 * 1024 * 1024 -> "${String.format("%.2f", bytesLong / (1024.0 * 1024))} MB"
+        else -> "${String.format("%.2f", bytesLong / (1024.0 * 1024 * 1024))} GB"
+    }
+}
+

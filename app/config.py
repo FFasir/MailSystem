@@ -21,12 +21,15 @@ IMAP_PORT = int(os.getenv("IMAP_PORT", "993")) if os.getenv("IMAP_PORT") else No
 IMAP_USER = os.getenv("IMAP_USER")
 IMAP_PASS = os.getenv("IMAP_PASS")
 IMAP_USE_SSL = os.getenv("IMAP_USE_SSL", "true").lower() == "true"
+IMAP_SYNC_ENABLED = os.getenv("IMAP_SYNC_ENABLED", "false").lower() == "true"
+IMAP_SYNC_TO_USER = os.getenv("IMAP_SYNC_TO_USER", "shao")  # 同步到哪个本地用户
+IMAP_SYNC_INTERVAL_MINUTES = int(os.getenv("IMAP_SYNC_INTERVAL_MINUTES", "5"))  # 同步间隔（分钟）
 
 # 数据库配置
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
 
 # 邮件域名
-MAIL_DOMAIN = os.getenv("MAIL_DOMAIN", "localhost")
+MAIL_DOMAIN = os.getenv("MAIL_DOMAIN", "mail.com")
 
 # 短信配置
 SMS_ENABLED = os.getenv("SMS_ENABLED", "true").lower() == "true"
