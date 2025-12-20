@@ -177,6 +177,9 @@ fun MailSystemApp() {
                 filename = filename,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToMail = { mailFilename ->
+                    navController.navigate("mail_detail/$mailFilename")
                 }
             )
         }

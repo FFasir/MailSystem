@@ -49,6 +49,33 @@ data class SaveDraftResponse(
     val filename: String
 )
 
+// 回复邮件请求模型
+data class ReplyMailRequest(
+    val to_addr: String,  // 收件人地址
+    val subject: String,  // 邮件主题
+    val body: String,     // 邮件正文
+    val reply_to_filename: String,  // 回复的原始邮件文件名或mailId
+    val is_pop3_mail: Boolean = false  // 是否是POP3邮件（通过mailId标识）
+)
+
+// 原邮件主题响应
+data class OriginalMailSubjectResponse(
+    val success: Boolean,
+    val subject: String
+)
+
+// 回复链项
+data class ReplyChainItem(
+    val filename: String,
+    val content: String
+)
+
+// 回复链响应
+data class ReplyChainResponse(
+    val success: Boolean,
+    val chain: List<ReplyChainItem>
+)
+
 /*
 // 补充MessageResponse（如果没有的话）
 data class MessageResponse(

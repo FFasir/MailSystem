@@ -52,6 +52,14 @@ class SendMailRequest(BaseModel):
     subject: str
     body: str
 
+class ReplyMailRequest(BaseModel):
+    """回复邮件请求"""
+    to_addr: str
+    subject: str
+    body: str
+    reply_to_filename: str  # 回复的原始邮件文件名（收件箱邮件）或mailId（POP3邮件）
+    is_pop3_mail: bool = False  # 是否是POP3邮件（通过mailId标识）
+
 class SaveDraftRequest(BaseModel):
     """保存草稿请求"""
     to_addr: str

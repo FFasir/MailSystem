@@ -22,6 +22,12 @@ interface ApiService {
     @GET("mail/sent/list")
     suspend fun getSentMails(@Header("Authorization") token: String): Response<MailListResponse>
     
+    @GET("mail/read/{filename}")
+    suspend fun readMail(
+        @Path("filename") filename: String,
+        @Header("Authorization") token: String
+    ): Response<MailContentResponse>
+
     @GET("mail/sent/read/{filename}")
     suspend fun readSentMail(
         @Path("filename") filename: String,
@@ -53,19 +59,19 @@ interface ApiService {
     // 管理员
     @GET("admin/users")
     suspend fun getUsers(@Header("Authorization") token: String): Response<List<User>>
-    
+
     @DELETE("admin/users/{userId}")
     suspend fun deleteUser(
         @Path("userId") userId: Int,
         @Header("Authorization") token: String
     ): Response<MessageResponse>
-    
+
     @POST("admin/broadcast")
     suspend fun broadcastMail(
         @Body request: BroadcastMailRequest,
         @Header("Authorization") token: String
     ): Response<MessageResponse>
-    
+
     // 修改管理员密码
     @POST("admin/change-password")
     suspend fun changeAdminPassword(
@@ -195,4 +201,25 @@ interface ApiService {
     ): Response<MessageResponse>
 
     // sendMail 已移除 - Android 直接使用 SMTP 协议发送邮件
+
+    // 回复邮件API
+    @POST("mail/reply")
+    suspend fun replyMail(
+        @Body request: ReplyMailRequest,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
+    // 获取原邮件主题
+    @GET("mail/original-subject")
+    suspend fun getOriginalMailSubject(
+        @Query("in_reply_to") inReplyTo: String,
+        @Header("Authorization") token: String
+    ): Response<OriginalMailSubjectResponse>
+
+    // 获取回复链
+    @GET("mail/reply-chain/{filename}")
+    suspend fun getReplyChain(
+        @Path("filename") filename: String,
+        @Header("Authorization") token: String
+    ): Response<ReplyChainResponse>
 }

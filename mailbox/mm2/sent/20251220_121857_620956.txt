@@ -1,0 +1,8 @@
+From: mm2@localhost
+To: mm1@mail.com
+Subject: test
+Date: 2025-12-20 12:18:57
+In-Reply-To: POP3_MAIL_1
+References: POP3_MAIL_1
+
+002

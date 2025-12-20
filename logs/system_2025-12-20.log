@@ -1,0 +1,16 @@
+[2025-12-20 12:16:07] SMTP 服务启动: 0.0.0.0:2525
+[2025-12-20 12:16:07] POP3 服务启动: 0.0.0.0:8110
+[2025-12-20 12:18:57] SMTP 客户端连接: 220 localhost SMTP Service Ready
+[2025-12-20 12:18:57] SMTP 命令: HELO localhost -> 250 localhost Hello
+[2025-12-20 12:18:57] SMTP 命令: MAIL FROM:<mm2@localhost> -> 250 OK
+[2025-12-20 12:18:57] SMTP 命令: RCPT TO:<mm1@mail.com> -> 250 OK
+[2025-12-20 12:18:57] SMTP 命令: DATA -> 354 Start mail input; end with <CRLF>.<CRLF>
+[2025-12-20 12:18:57] SMTP 数据发送完成: 250 OK: Message accepted for delivery
+[2025-12-20 12:18:57] 邮件发送成功: mm2@localhost -> mm1@mail.com
+[2025-12-20 12:19:33] SMTP 客户端连接: 220 localhost SMTP Service Ready
+[2025-12-20 12:19:33] SMTP 命令: HELO localhost -> 250 localhost Hello
+[2025-12-20 12:19:33] SMTP 命令: MAIL FROM:<mm1@localhost> -> 250 OK
+[2025-12-20 12:19:33] SMTP 命令: RCPT TO:<mm2@mail.com> -> 250 OK
+[2025-12-20 12:19:33] SMTP 命令: DATA -> 354 Start mail input; end with <CRLF>.<CRLF>
+[2025-12-20 12:19:33] SMTP 数据发送完成: 250 OK: Message accepted for delivery
+[2025-12-20 12:19:33] 邮件发送成功: mm1@localhost -> mm2@mail.com

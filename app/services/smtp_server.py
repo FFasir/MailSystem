@@ -101,7 +101,9 @@ class SMTPServer:
                 # 解析邮件头和正文
                 subject = self.extract_subject(mail_body)
                 body = self.extract_body(mail_body)
-                
+                # 提取回复关联信息（In-Reply-To头）
+                reply_to_filename = self.extract_in_reply_to(mail_body)
+
                 # 保存邮件（为每个收件人保存一份）
                 for rcpt in session.rcpt_to:
                     try:
@@ -109,19 +111,21 @@ class SMTPServer:
                             to_addr=rcpt,
                             from_addr=session.mail_from,
                             subject=subject,
-                            body=body
+                            body=body,
+                            reply_to_filename=reply_to_filename
                         )
                         LogService.log_smtp(f"邮件已保存: {filepath}", client_addr)
                     except Exception as e:
                         LogService.log_smtp(f"保存邮件失败: {e}", client_addr)
-                
+
                 # 保存邮件到发件人的发件箱
                 try:
                     sent_path = MailStorageService.save_sent_mail(
                         from_addr=session.mail_from,
                         to_addrs=session.rcpt_to,
                         subject=subject,
-                        body=body
+                        body=body,
+                        reply_to_filename=reply_to_filename
                     )
                     LogService.log_smtp(f"已发送邮件保存: {sent_path}", client_addr)
                 except Exception as e:
@@ -131,37 +135,37 @@ class SMTPServer:
                 session.mail_from = None
                 session.rcpt_to = []
                 session.mail_data = []
-                
+
                 return "250 OK: Message accepted for delivery"
             else:
                 # 收集邮件数据
                 session.mail_data.append(command)
                 return None  # DATA 模式不返回响应
-        
+
         # 普通命令模式
         cmd_upper = command.upper()
-        
+
         # HELO / EHLO
         if cmd_upper.startswith("HELO") or cmd_upper.startswith("EHLO"):
             return f"250 {MAIL_DOMAIN} Hello"
-        
+
         # MAIL FROM
         elif cmd_upper.startswith("MAIL FROM"):
             match = re.search(r'<(.+?)>', command, re.IGNORECASE)
             if match:
                 from_addr = match.group(1)
-                
+
                 # 检查发件人是否在黑名单
                 if FilterService.is_email_blocked(from_addr):
                     LogService.log_smtp(f"发件人被拒绝（黑名单）: {from_addr}", client_addr)
                     return "550 Sender address rejected"
-                
+
                 session.mail_from = from_addr
                 LogService.log_smtp(f"发件人: {session.mail_from}", client_addr)
                 return "250 OK"
             else:
                 return "501 Syntax error in MAIL FROM"
-        
+
         # RCPT TO
         elif cmd_upper.startswith("RCPT TO"):
             match = re.search(r'<(.+?)>', command, re.IGNORECASE)
@@ -187,13 +191,13 @@ class SMTPServer:
                 if FilterService.is_email_blocked(rcpt):
                     LogService.log_smtp(f"收件人被拒绝（黑名单）: {rcpt}", client_addr)
                     return "550 Recipient address rejected"
-                
+
                 # 验证收件人是否存在（提取邮箱用户名部分）
                 if '@' in rcpt:
                     username = rcpt.split('@')[0]
                 else:
                     username = rcpt
-                
+
                 # 查询数据库验证用户是否存在
                 db_gen = get_db()
                 db = next(db_gen)
@@ -208,24 +212,24 @@ class SMTPServer:
                         next(db_gen)
                     except StopIteration:
                         pass
-                
+
                 session.rcpt_to.append(rcpt)
                 LogService.log_smtp(f"收件人: {rcpt}", client_addr)
                 return "250 OK"
             else:
                 return "501 Syntax error in RCPT TO"
-        
+
         # DATA
         elif cmd_upper == "DATA":
             if not session.mail_from:
                 return "503 Bad sequence: MAIL FROM required"
             if not session.rcpt_to:
                 return "503 Bad sequence: RCPT TO required"
-            
+
             session.data_mode = True
             LogService.log_smtp("开始接收邮件数据", client_addr)
             return "354 Start mail input; end with <CRLF>.<CRLF>"
-        
+
         # RSET
         elif cmd_upper == "RSET":
             session.mail_from = None
@@ -233,19 +237,19 @@ class SMTPServer:
             session.mail_data = []
             session.data_mode = False
             return "250 OK"
-        
+
         # NOOP
         elif cmd_upper == "NOOP":
             return "250 OK"
-        
+
         # QUIT
         elif cmd_upper == "QUIT":
             return "221 Bye"
-        
+
         # 未知命令
         else:
             return "500 Command not recognized"
-    
+
     @staticmethod
     def extract_subject(mail_data: str) -> str:
         """提取邮件主题"""
@@ -254,7 +258,7 @@ class SMTPServer:
             if line.lower().startswith("subject:"):
                 return line[8:].strip()
         return "(无主题)"
-    
+
     @staticmethod
     def extract_body(mail_data: str) -> str:
         """提取邮件正文（去掉邮件头）"""
@@ -263,6 +267,15 @@ class SMTPServer:
         if len(parts) > 1:
             return parts[1]
         return mail_data
+
+    @staticmethod
+    def extract_in_reply_to(mail_data: str) -> str:
+        """提取In-Reply-To头（回复关联）"""
+        lines = mail_data.split("\n")
+        for line in lines:
+            if line.lower().startswith("in-reply-to:"):
+                return line[13:].strip()
+        return None
     
     async def start(self):
         """启动 SMTP 服务"""

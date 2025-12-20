@@ -214,6 +214,43 @@ class MailRepository(private val userPreferences: UserPreferences) {
         }
     }
 
+    // 直接读取收件箱邮件（不检查发件箱）
+    suspend fun readInboxMail(filename: String): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.readMail(filename, "Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.content)
+            } else {
+                Result.failure(Exception("收件箱中不存在"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 通过文件名读取邮件（用于查看原邮件）
+    suspend fun readMailByFilename(filename: String): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            // 先尝试从收件箱读取
+            val response = api.readMail(filename, "Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.content)
+            } else {
+                // 如果收件箱没有，尝试从发件箱读取
+                val sentResponse = api.readSentMail(filename, "Bearer $token")
+                if (sentResponse.isSuccessful && sentResponse.body() != null) {
+                    Result.success(sentResponse.body()!!.content)
+                } else {
+                    Result.failure(Exception("邮件不存在"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // 草稿箱功能
     suspend fun getDraftList(): Result<List<Mail>> {
         return try {
@@ -401,6 +438,72 @@ class MailRepository(private val userPreferences: UserPreferences) {
             Result.failure(Exception("无法连接到服务器"))
         } catch (e: Exception) {
             Result.failure(Exception("群发邮件失败: ${e.message ?: "未知错误"}"))
+        }
+    }
+
+    // 回复邮件 - 通过HTTP API（因为需要传递回复关联信息）
+    suspend fun replyMail(
+        to: String,
+        subject: String,
+        content: String,
+        replyToFilename: String,
+        isPop3Mail: Boolean = false
+    ): Result<Unit> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
+
+            // 校验收件人邮箱格式
+            if (!isEmailValid(to)) {
+                return Result.failure(Exception("发送失败：收件人邮箱格式无效（需填写 xxx@xxx.xxx 格式）"))
+            }
+
+            val response = api.replyMail(
+                ReplyMailRequest(to, subject, content, replyToFilename, isPop3Mail),
+                "Bearer $token"
+            )
+
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(Unit)
+            } else {
+                val errorMsg = response.body()?.message ?: response.message()
+                Result.failure(Exception("回复邮件失败: $errorMsg"))
+            }
+        } catch (e: java.net.UnknownHostException) {
+            Result.failure(Exception("无法连接到服务器，请检查网络设置"))
+        } catch (e: java.net.SocketTimeoutException) {
+            Result.failure(Exception("连接服务器超时，请稍后重试"))
+        } catch (e: Exception) {
+            Result.failure(Exception("回复邮件失败: ${e.message ?: "未知错误"}"))
+        }
+    }
+
+    // 获取原邮件主题
+    suspend fun getOriginalMailSubject(inReplyTo: String): Result<String> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getOriginalMailSubject(inReplyTo, "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.subject)
+            } else {
+                Result.failure(Exception(response.body()?.subject ?: "获取失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 获取回复链
+    suspend fun getReplyChain(filename: String): Result<List<com.mailsystem.data.model.ReplyChainItem>> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getReplyChain(filename, "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.chain)
+            } else {
+                Result.failure(Exception("获取回复链失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

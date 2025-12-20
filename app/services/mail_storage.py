@@ -110,45 +110,66 @@ class MailStorageService:
         sent_dir.mkdir(parents=True, exist_ok=True)
         return sent_dir
     @staticmethod
-    def save_mail(to_addr: str, from_addr: str, subject: str, body: str) -> str:
+    def save_mail(to_addr: str, from_addr: str, subject: str, body: str, reply_to_filename: str = None) -> str:
+        """
+        保存邮件到收件箱
+
+        Args:
+            to_addr: 收件人地址
+            from_addr: 发件人地址
+            subject: 邮件主题
+            body: 邮件正文
+            reply_to_filename: 可选，回复的原始邮件文件名（用于建立回复关联）
+        """
         # 提取用户名（去掉 @domain 部分）
         username = to_addr.split("@")[0] if "@" in to_addr else to_addr
-        
+
         # 确保用户邮箱目录存在
         user_dir = MailStorageService.ensure_user_mailbox(username)
-        
+
         # 生成文件名（时间戳）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{timestamp}.txt"
         filepath = user_dir / filename
-        
+
         # 写入邮件内容（标准RFC格式）
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"From: {from_addr}\n")
             f.write(f"To: {to_addr}\n")
             f.write(f"Subject: {subject}\n")
             f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            # 如果是回复邮件，添加回复关联头
+            if reply_to_filename:
+                f.write(f"In-Reply-To: {reply_to_filename}\n")
+                f.write(f"References: {reply_to_filename}\n")
             f.write("\n")
             f.write(body)
-        
+
         return str(filepath)
 
     @staticmethod
-    def save_sent_mail(from_addr: str, to_addrs: list, subject: str, body: str) -> str:
+    def save_sent_mail(from_addr: str, to_addrs: list, subject: str, body: str, reply_to_filename: str = None) -> str:
         """
         保存邮件到发件箱
+
+        Args:
+            from_addr: 发件人地址
+            to_addrs: 收件人地址列表
+            subject: 邮件主题
+            body: 邮件正文
+            reply_to_filename: 可选，回复的原始邮件文件名（用于建立回复关联）
         """
         # 提取发件人用户名
         username = from_addr.split("@")[0] if "@" in from_addr else from_addr
-        
+
         # 确保发件箱目录存在
         sent_dir = MailStorageService.ensure_user_sentbox(username)
-        
+
         # 生成文件名（时间戳）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{timestamp}.txt"
         filepath = sent_dir / filename
-        
+
         # 写入邮件内容
         to_str = ", ".join(to_addrs)
         with open(filepath, "w", encoding="utf-8") as f:
@@ -156,18 +177,22 @@ class MailStorageService:
             f.write(f"To: {to_str}\n")
             f.write(f"Subject: {subject}\n")
             f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            # 如果是回复邮件，添加回复关联头
+            if reply_to_filename:
+                f.write(f"In-Reply-To: {reply_to_filename}\n")
+                f.write(f"References: {reply_to_filename}\n")
             f.write("\n")
             f.write(body)
-        
+
         return str(filepath)
-    
+
     @staticmethod
     def list_user_mails(username: str) -> list:
         """列出用户的所有邮件（收件箱）"""
         user_dir = Path(MailStorageService.BASE_DIR) / username
         if not user_dir.exists():
             return []
-        
+
         mails = []
         # 只列出根目录下的 .txt 文件，不递归（避免包含 sent 子目录）
         for mail_file in sorted(user_dir.glob("*.txt"), reverse=True):
@@ -186,7 +211,7 @@ class MailStorageService:
         sent_dir = Path(MailStorageService.BASE_DIR) / username / "sent"
         if not sent_dir.exists():
             return []
-        
+
         mails = []
         for mail_file in sorted(sent_dir.glob("*.txt"), reverse=True):
             if mail_file.is_file():
@@ -197,14 +222,14 @@ class MailStorageService:
                     "created": datetime.fromtimestamp(mail_file.stat().st_ctime)
                 })
         return mails
-    
+
     @staticmethod
     def read_mail(username: str, filename: str) -> str:
         """读取邮件内容（收件箱）"""
         filepath = Path(MailStorageService.BASE_DIR) / username / filename
         if not filepath.exists():
             return None
-        
+
         with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
 
@@ -214,11 +239,11 @@ class MailStorageService:
         filepath = Path(MailStorageService.BASE_DIR) / username / "sent" / filename
         if not filepath.exists():
             return None
-        
+
         with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
 
-    
+
     @staticmethod
     def delete_mail(username: str, filename: str) -> bool:
         """删除邮件"""
@@ -227,3 +252,81 @@ class MailStorageService:
             filepath.unlink()
             return True
         return False
+
+    @staticmethod
+    def get_original_mail_subject(username: str, in_reply_to: str) -> str:
+        """
+        根据In-Reply-To获取原邮件的主题
+
+        Args:
+            username: 用户名
+            in_reply_to: In-Reply-To的值（可能是文件名或POP3_MAIL_xxx格式）
+
+        Returns:
+            原邮件的主题，如果找不到则返回None
+        """
+        # 如果是POP3_MAIL_格式，无法直接获取（因为POP3邮件是动态的）
+        if in_reply_to.startswith("POP3_MAIL_"):
+            return None
+
+        # 尝试从收件箱读取
+        filepath = Path(MailStorageService.BASE_DIR) / username / in_reply_to
+        if not filepath.exists():
+            # 尝试从发件箱读取
+            filepath = Path(MailStorageService.BASE_DIR) / username / "sent" / in_reply_to
+
+        if not filepath.exists():
+            return None
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+                lines = content.split("\n")
+                for line in lines:
+                    if line.startswith("Subject:"):
+                        return line[8:].strip()
+        except Exception:
+            pass
+
+        return None
+
+    @staticmethod
+    def get_reply_info(username: str, filename: str) -> dict:
+        """
+        获取邮件的回复关联信息
+
+        Args:
+            username: 用户名
+            filename: 邮件文件名
+
+        Returns:
+            包含回复信息的字典，包括：
+            - in_reply_to: 回复的原始邮件文件名（如果有）
+            - is_reply: 是否是回复邮件
+        """
+        # 先尝试从收件箱读取
+        filepath = Path(MailStorageService.BASE_DIR) / username / filename
+        if not filepath.exists():
+            # 尝试从发件箱读取
+            filepath = Path(MailStorageService.BASE_DIR) / username / "sent" / filename
+
+        if not filepath.exists():
+            return {"in_reply_to": None, "is_reply": False}
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+                lines = content.split("\n")
+
+                in_reply_to = None
+                for line in lines:
+                    if line.startswith("In-Reply-To:"):
+                        in_reply_to = line[13:].strip()
+                        break
+
+                return {
+                    "in_reply_to": in_reply_to,
+                    "is_reply": in_reply_to is not None
+                }
+        except Exception:
+            return {"in_reply_to": None, "is_reply": False}
