@@ -25,7 +25,8 @@ data class MailContentResponse(
 data class BroadcastMailRequest(
     val subject: String,
     val body: String,
-    val from_addr: String = "admin@localhost"
+    val from_addr: String = "admin@localhost",
+    val user_ids: List<Int>? = null  // 可选的用户ID列表，如果为空或null则发送给所有用户
 )
 
 

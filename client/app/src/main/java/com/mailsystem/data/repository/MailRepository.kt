@@ -417,11 +417,11 @@ class MailRepository(private val userPreferences: UserPreferences) {
         } catch (e: Exception) { Result.failure(e) }
     }
 
-    suspend fun broadcastMail(subject: String, body: String): Result<Unit> {
+    suspend fun broadcastMail(subject: String, body: String, userIds: List<Int>? = null): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
             val response = api.broadcastMail(
-                BroadcastMailRequest(subject, body),
+                BroadcastMailRequest(subject, body, "admin@localhost", userIds),
                 "Bearer $token"
             )
             if (response.isSuccessful) {

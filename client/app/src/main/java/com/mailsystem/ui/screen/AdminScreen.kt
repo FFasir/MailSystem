@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mailsystem.data.model.User
 import com.mailsystem.ui.viewmodel.AdminViewModel
@@ -336,9 +337,10 @@ fun AdminScreen(
     // 群发邮件对话框
     if (showBroadcastDialog) {
         BroadcastDialog(
+            users = users,
             onDismiss = { showBroadcastDialog = false },
-            onConfirm = { subject, body ->
-                adminViewModel.broadcastMail(subject, body)
+            onConfirm = { subject, body, selectedUserIds ->
+                adminViewModel.broadcastMail(subject, body, selectedUserIds)
                 showBroadcastDialog = false
             }
         )
@@ -482,17 +484,45 @@ fun UserItem(
 
 @Composable
 fun BroadcastDialog(
+    users: List<User>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (String, String, List<Int>?) -> Unit
 ) {
     var subject by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
+    var selectedUserIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("群发邮件") },
-        text = {
-            Column {
+    // 全选/取消全选逻辑
+    val allSelected = users.isNotEmpty() && selectedUserIds.size == users.size
+    val toggleSelectAll = {
+        if (allSelected) {
+            selectedUserIds = emptySet()
+        } else {
+            selectedUserIds = users.map { it.id }.toSet()
+        }
+    }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f),
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 标题
+                Text(
+                    text = "群发邮件",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                // 主题输入
                 OutlinedTextField(
                     value = subject,
                     onValueChange = { subject = it },
@@ -500,30 +530,112 @@ fun BroadcastDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                
+                // 正文输入
                 OutlinedTextField(
                     value = body,
                     onValueChange = { body = it },
                     label = { Text("正文") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp),
+                        .height(120.dp),
                     maxLines = 5
                 )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(subject, body) },
-                enabled = subject.isNotBlank() && body.isNotBlank()
-            ) {
-                Text("发送")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+                
+                // 用户选择区域
+                Text(
+                    text = "选择收件人",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                
+                // 全选/取消全选按钮
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = toggleSelectAll) {
+                        Text(if (allSelected) "取消全选" else "全选")
+                    }
+                    Text(
+                        text = "已选择 ${selectedUserIds.size}/${users.size} 个用户",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // 用户列表
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(users) { user ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (selectedUserIds.contains(user.id)) {
+                                        selectedUserIds = selectedUserIds - user.id
+                                    } else {
+                                        selectedUserIds = selectedUserIds + user.id
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = selectedUserIds.contains(user.id),
+                                onCheckedChange = {
+                                    if (it) {
+                                        selectedUserIds = selectedUserIds + user.id
+                                    } else {
+                                        selectedUserIds = selectedUserIds - user.id
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(user.username, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "角色: ${if (user.role == "admin") "管理员" else "普通用户"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // 按钮区域
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("取消")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            // 如果选择了所有用户，传递null（表示发送给所有人，与原来的行为一致）
+                            // 如果选择了部分用户，传递选中的用户ID列表
+                            val userIds = if (selectedUserIds.size == users.size) {
+                                null  // 全选等同于发送给所有人
+                            } else {
+                                selectedUserIds.toList()  // 发送给选中的用户
+                            }
+                            onConfirm(subject, body, userIds)
+                        },
+                        enabled = subject.isNotBlank() && body.isNotBlank() && selectedUserIds.isNotEmpty()
+                    ) {
+                        Text("发送")
+                    }
+                }
             }
         }
-    )
+    }
 }

@@ -10,7 +10,7 @@ from app.services.auth_service import AuthService
 from app.services.mail_storage import MailStorageService
 from app.services.filter_service import FilterService
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/admin", tags=["管理"])
 
@@ -200,6 +200,7 @@ class BroadcastMailRequest(BaseModel):
     subject: str
     body: str
     from_addr: str = "admin@localhost"
+    user_ids: Optional[List[int]] = None  # 可选的用户ID列表，如果为空或None则发送给所有用户
 
 
 @router.post("/broadcast", response_model=MessageResponse)
@@ -208,8 +209,12 @@ async def broadcast_mail(
     db: Session = Depends(get_db),
     admin_info: dict = Depends(verify_admin_token)
 ):
-    """群发邮件给所有用户（仅管理员）"""
-    users = db.query(User).all()
+    """群发邮件给指定用户或所有用户（仅管理员）"""
+    # 如果提供了user_ids，则只发送给这些用户；否则发送给所有用户
+    if request.user_ids:
+        users = db.query(User).filter(User.id.in_(request.user_ids)).all()
+    else:
+        users = db.query(User).all()
     
     if not users:
         raise HTTPException(status_code=404, detail="没有找到任何用户")

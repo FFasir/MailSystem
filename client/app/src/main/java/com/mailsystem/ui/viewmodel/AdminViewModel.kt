@@ -137,11 +137,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun broadcastMail(subject: String, body: String) {
+    fun broadcastMail(subject: String, body: String, userIds: List<Int>? = null) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            val result = repository.broadcastMail(subject, body)
+            val result = repository.broadcastMail(subject, body, userIds)
             if (result.isSuccess) {
                 _message.value = "群发邮件成功"
             } else {
