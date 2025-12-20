@@ -6,10 +6,21 @@ import os
 # SMTP 配置
 SMTP_HOST = os.getenv("SMTP_HOST", "0.0.0.0")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "2525"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "false").lower() == "true"
+SMTP_USE_STARTTLS = os.getenv("SMTP_USE_STARTTLS", "false").lower() == "true"
 
 # POP3 配置
 POP3_HOST = os.getenv("POP3_HOST", "0.0.0.0")
 POP3_PORT = int(os.getenv("POP3_PORT", "8110"))
+
+# IMAP 配置（接入外部邮箱时使用）
+IMAP_HOST = os.getenv("IMAP_HOST")
+IMAP_PORT = int(os.getenv("IMAP_PORT", "993")) if os.getenv("IMAP_PORT") else None
+IMAP_USER = os.getenv("IMAP_USER")
+IMAP_PASS = os.getenv("IMAP_PASS")
+IMAP_USE_SSL = os.getenv("IMAP_USE_SSL", "true").lower() == "true"
 
 # 数据库配置
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")

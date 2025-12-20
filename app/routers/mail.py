@@ -204,17 +204,22 @@ async def send_mail(
     if not is_valid_email(request.to_addr):
         raise HTTPException(status_code=400, detail="收件人邮箱格式无效")
 
-    # 验证收件人是否存在
+    # 允许发送到外部邮箱：仅当收件人为本域时才校验存在性
     db = SessionLocal()
     username = extract_username(request.to_addr)
-    user = db.query(User).filter(User.username == username).first()
+    domain = request.to_addr.split("@")[-1].lower() if "@" in request.to_addr else ""
+    user = None
+    if domain == MAIL_DOMAIN:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            db.close()
+            raise HTTPException(status_code=404, detail="收件人不存在")
     db.close()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="收件人不存在")
-
+    # 外部SMTP发信时使用认证账户作为发件人以通过服务商校验
+    from app.config import SMTP_USER
     username = user_info.get("username")
-    from_addr = f"{username}@{MAIL_DOMAIN}"
+    from_addr = SMTP_USER or f"{username}@{MAIL_DOMAIN}"
 
 
     # 创建 SMTP 客户端
@@ -250,17 +255,21 @@ async def reply_mail(
     if not is_valid_email(request.to_addr):
         raise HTTPException(status_code=400, detail="收件人邮箱格式无效")
 
-    # 验证收件人是否存在
+    # 允许回复到外部邮箱：仅当本域地址才校验存在性
     db = SessionLocal()
     username = extract_username(request.to_addr)
-    user = db.query(User).filter(User.username == username).first()
+    domain = request.to_addr.split("@")[-1].lower() if "@" in request.to_addr else ""
+    user = None
+    if domain == MAIL_DOMAIN:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            db.close()
+            raise HTTPException(status_code=404, detail="收件人不存在")
     db.close()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="收件人不存在")
-
+    from app.config import SMTP_USER
     current_username = user_info.get("username")
-    from_addr = f"{current_username}@{MAIL_DOMAIN}"
+    from_addr = SMTP_USER or f"{current_username}@{MAIL_DOMAIN}"
 
     # 验证不能回复自己的邮件
     to_username = extract_username(request.to_addr)

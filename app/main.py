@@ -1,6 +1,12 @@
 """
 FastAPI 入口，启动时同时拉起 SMTP/POP3 占位服务
 """
+# 优先加载 .env 环境变量（如不存在 python-dotenv 则忽略）
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
