@@ -2,6 +2,7 @@
 Pydantic 数据模型 - 请求/响应数据结构
 """
 from pydantic import BaseModel
+from pydantic import EmailStr
 from typing import Optional
 from datetime import datetime
 
@@ -11,6 +12,8 @@ class UserRegisterRequest(BaseModel):
     username: str
     password: str
     role: str = "user"  # 默认为普通用户
+    phone_number: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 
 class UserLoginRequest(BaseModel):
@@ -26,6 +29,8 @@ class UserResponse(BaseModel):
     role: str
     is_disabled: int
     created_at: datetime
+    phone_number: Optional[str] = None
+    email: Optional[EmailStr] = None
 
     class Config:
         from_attributes = True
@@ -37,6 +42,41 @@ class TokenResponse(BaseModel):
     user_id: int
     username: str
     role: str
+
+
+class PasswordResetCodeRequest(BaseModel):
+    """请求发送重置密码短信验证码"""
+    username: str
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """确认验证码并重置密码"""
+    username: str
+    code: str
+    new_password: str
+
+
+class BindPhoneRequest(BaseModel):
+    """绑定或更新手机号"""
+    phone_number: str
+
+
+class ProfileResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    is_disabled: int
+    created_at: datetime
+    phone_number: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UpdateProfileRequest(BaseModel):
+    username: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class MessageResponse(BaseModel):

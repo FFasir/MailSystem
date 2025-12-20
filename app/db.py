@@ -30,6 +30,12 @@ def init_db():
                 if "is_disabled" not in names:
                     conn.execute(text("ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0"))
                     print("已为 users 表添加列 is_disabled")
+                if "phone_number" not in names:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN phone_number TEXT"))
+                    print("已为 users 表添加列 phone_number")
+                if "email" not in names:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
+                    print("已为 users 表添加列 email")
     except Exception as e:
         # 非致命：打印提示继续运行
         print(f"数据库列检查/升级时出现问题: {e}")

@@ -111,6 +111,37 @@ class MailRepository(private val userPreferences: UserPreferences) {
         }
     }
 
+    // 忘记密码：请求短信验证码
+    suspend fun requestPasswordResetCode(username: String): Result<String> {
+        return try {
+            val response = api.requestPasswordResetCode(PasswordResetCodeRequest(username))
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.message)
+            } else {
+                val errorMsg = try { response.errorBody()?.string() ?: response.message() } catch (e: Exception) { response.message() }
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "请求验证码失败"))
+        }
+    }
+
+    // 忘记密码：确认验证码并重置密码
+    suspend fun confirmPasswordReset(username: String, code: String, newPassword: String): Result<Unit> {
+        return try {
+            val response = api.confirmPasswordReset(PasswordResetConfirmRequest(username, code, newPassword))
+            if (response.isSuccessful && response.body()?.success == true) {
+                // 清理本地登录态（防止旧token继续使用）
+                userPreferences.clearUserData()
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "重置密码失败"))
+        }
+    }
+
     // 邮件 - 通过 POP3 协议（无修改，保持原样）
     suspend fun getMailList(): Result<List<Mail>> {
         return try {
@@ -675,6 +706,55 @@ class MailRepository(private val userPreferences: UserPreferences) {
                     userId = userId ?: 0,
                     password = newPassword
                 )
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getProfile(): Result<ProfileResponse> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.getProfile("Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfile(username: String?, phone: String?): Result<Unit> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.updateProfile(UpdateProfileRequest(username, phone), "Bearer $token")
+            if (response.isSuccessful && response.body()?.success == true) {
+                // 同步本地用户名
+                val currentRole = userPreferences.role.first() ?: "user"
+                val currentUserId = userPreferences.userIdFirst() ?: 0
+                val currentPassword = userPreferences.password.first() ?: ""
+                val newUsername = username ?: (userPreferences.username.first() ?: "")
+                userPreferences.saveUserData(token, newUsername, currentRole, currentUserId, currentPassword)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: response.message()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 绑定手机号
+    suspend fun bindPhone(phone: String): Result<Unit> {
+        return try {
+            val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
+            val response = api.bindPhone(BindPhoneRequest(phone), "Bearer $token")
+            if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.body()?.message ?: response.message()))

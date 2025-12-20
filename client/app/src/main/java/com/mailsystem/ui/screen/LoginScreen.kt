@@ -19,6 +19,7 @@ fun LoginScreen(
     onLoginSuccess: (String) -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToAppeal: () -> Unit,
+    onNavigateToForgot: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
     var username by remember { mutableStateOf("") }
@@ -128,6 +129,10 @@ fun LoginScreen(
                     Text("还没有账号？去注册", fontSize = 14.sp)
                 }
                 
+                TextButton(onClick = onNavigateToForgot) {
+                    Text("忘记密码？", fontSize = 14.sp)
+                }
+
                 TextButton(onClick = onNavigateToAppeal) {
                     Text("账号被禁用？去申诉", fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                 }

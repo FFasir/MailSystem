@@ -18,8 +18,24 @@ fun ProfileScreen(
 ) {
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     val msg by viewModel.profileMessage.collectAsState()
     val err by viewModel.profileError.collectAsState()
+    val phoneMsg by viewModel.phoneMessage.collectAsState()
+    val phoneErr by viewModel.phoneError.collectAsState()
+    val profile by viewModel.profile.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadProfile()
+    }
+
+    LaunchedEffect(profile) {
+        profile?.let {
+            username = it.username
+            phone = it.phone_number ?: ""
+        }
+    }
 
     LaunchedEffect(msg, err) {
         // 若需要可在一定时间后清除提示
@@ -28,7 +44,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("修改密码") },
+                title = { Text("个人资料") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -44,6 +60,28 @@ fun ProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text("个人资料", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("用户名") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("手机号") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                onClick = { viewModel.updateProfile(username, phone) },
+                enabled = username.isNotBlank()
+            ) { Text("保存资料") }
+            phoneMsg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+            phoneErr?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("修改密码", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
                 value = oldPassword,
                 onValueChange = { oldPassword = it },
@@ -59,9 +97,7 @@ fun ProfileScreen(
             Button(
                 onClick = { viewModel.changeMyPassword(oldPassword, newPassword) },
                 enabled = oldPassword.isNotBlank() && newPassword.isNotBlank()
-            ) {
-                Text("保存")
-            }
+            ) { Text("保存密码") }
             msg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
             err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }

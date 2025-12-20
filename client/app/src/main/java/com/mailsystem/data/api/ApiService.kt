@@ -181,6 +181,35 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<MessageResponse>
 
+    @POST("auth/bind-phone")
+    suspend fun bindPhone(
+        @Body request: BindPhoneRequest,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
+    @GET("auth/profile")
+    suspend fun getProfile(
+        @Header("Authorization") token: String
+    ): Response<ProfileResponse>
+
+    @PATCH("auth/profile")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest,
+        @Header("Authorization") token: String
+    ): Response<MessageResponse>
+
+    // 忘记密码 - 发送验证码
+    @POST("auth/forgot-password/request")
+    suspend fun requestPasswordResetCode(
+        @Body request: PasswordResetCodeRequest
+    ): Response<MessageResponse>
+
+    // 忘记密码 - 重置密码
+    @POST("auth/forgot-password/reset")
+    suspend fun confirmPasswordReset(
+        @Body request: PasswordResetConfirmRequest
+    ): Response<MessageResponse>
+
     // 申诉
     @POST("appeal/submit")
     suspend fun submitAppeal(@Body request: AppealRequest): Response<MessageResponse>

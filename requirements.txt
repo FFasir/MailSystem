@@ -1,3 +1,6 @@
 fastapi==0.112.0
 uvicorn[standard]==0.28.0
 sqlalchemy==2.0.45
+email-validator==2.2.0
+aliyun-python-sdk-core==2.15.0
+aliyun-python-sdk-dysmsapi==2.1.3

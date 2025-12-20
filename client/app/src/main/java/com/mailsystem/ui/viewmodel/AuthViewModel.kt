@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mailsystem.data.local.UserPreferences
 import com.mailsystem.data.repository.MailRepository
+import com.mailsystem.data.model.ProfileResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -30,6 +31,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val profileMessage: StateFlow<String?> = _profileMessage
     private val _profileError = MutableStateFlow<String?>(null)
     val profileError: StateFlow<String?> = _profileError
+
+    private val _phoneMessage = MutableStateFlow<String?>(null)
+    val phoneMessage: StateFlow<String?> = _phoneMessage
+    private val _phoneError = MutableStateFlow<String?>(null)
+    val phoneError: StateFlow<String?> = _phoneError
+
+    // 忘记密码 - 状态
+    private val _forgotCodeMessage = MutableStateFlow<String?>(null)
+    val forgotCodeMessage: StateFlow<String?> = _forgotCodeMessage
+    private val _forgotCodeError = MutableStateFlow<String?>(null)
+    val forgotCodeError: StateFlow<String?> = _forgotCodeError
+
+    private val _forgotResetMessage = MutableStateFlow<String?>(null)
+    val forgotResetMessage: StateFlow<String?> = _forgotResetMessage
+    private val _forgotResetError = MutableStateFlow<String?>(null)
+    val forgotResetError: StateFlow<String?> = _forgotResetError
+
+    private val _profile = MutableStateFlow<ProfileResponse?>(null)
+    val profile: StateFlow<ProfileResponse?> = _profile
     
     fun login(username: String, password: String) {
         viewModelScope.launch {
@@ -97,6 +117,75 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun clearProfileTips() { _profileMessage.value = null; _profileError.value = null }
+
+    fun loadProfile() {
+        viewModelScope.launch {
+            val result = repository.getProfile()
+            if (result.isSuccess) {
+                _profile.value = result.getOrNull()
+            } else {
+                _profileError.value = result.exceptionOrNull()?.message ?: "获取资料失败"
+            }
+        }
+    }
+
+    fun updateProfile(username: String?, phone: String?) {
+        viewModelScope.launch {
+            _profileMessage.value = null
+            _profileError.value = null
+            val result = repository.updateProfile(username, phone)
+            if (result.isSuccess) {
+                _profileMessage.value = "资料更新成功"
+                // 重新拉取资料以同步UI
+                loadProfile()
+            } else {
+                _profileError.value = result.exceptionOrNull()?.message ?: "资料更新失败"
+            }
+        }
+    }
+
+    fun bindPhone(phone: String) {
+        viewModelScope.launch {
+            _phoneMessage.value = null
+            _phoneError.value = null
+            val result = repository.bindPhone(phone)
+            if (result.isSuccess) {
+                _phoneMessage.value = "手机号绑定成功"
+            } else {
+                _phoneError.value = result.exceptionOrNull()?.message ?: "绑定失败"
+            }
+        }
+    }
+
+    fun clearPhoneTips() { _phoneMessage.value = null; _phoneError.value = null }
+
+    // 忘记密码：请求验证码
+    fun requestPasswordResetCode(username: String) {
+        viewModelScope.launch {
+            _forgotCodeMessage.value = null
+            _forgotCodeError.value = null
+            val result = repository.requestPasswordResetCode(username)
+            if (result.isSuccess) {
+                _forgotCodeMessage.value = result.getOrNull()
+            } else {
+                _forgotCodeError.value = result.exceptionOrNull()?.message
+            }
+        }
+    }
+
+    // 忘记密码：确认重置
+    fun confirmPasswordReset(username: String, code: String, newPassword: String) {
+        viewModelScope.launch {
+            _forgotResetMessage.value = null
+            _forgotResetError.value = null
+            val result = repository.confirmPasswordReset(username, code, newPassword)
+            if (result.isSuccess) {
+                _forgotResetMessage.value = "密码重置成功，请重新登录"
+            } else {
+                _forgotResetError.value = result.exceptionOrNull()?.message
+            }
+        }
+    }
 }
 
 sealed class LoginState {

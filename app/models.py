@@ -18,6 +18,8 @@ class User(Base):
     password = Column(String(255), nullable=False)
     role = Column(String(20), default="user")  # user 或 admin
     is_disabled = Column(Integer, default=0)  # 0 启用, 1 禁用
+    phone_number = Column(String(20), unique=True, index=True, nullable=True)  # 绑定手机号
+    email = Column(String(255), unique=True, index=True, nullable=True)  # 绑定邮箱
     created_at = Column(DateTime, default=datetime.utcnow)
     
     appeals = relationship("Appeal", back_populates="user")
@@ -58,3 +60,23 @@ class Mail(Base):
     
     def __repr__(self):
         return f"<Mail from={self.from_addr} to={self.to_addr}>"
+
+
+class PasswordResetCode(Base):
+    """密码重置验证码表（短信）"""
+    __tablename__ = "password_reset_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(String(10), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Integer, default=0)  # 0 未使用, 1 已使用
+    delivery_channel = Column(String(20), default="sms")
+    delivered_to = Column(String(50))  # 发送到的号码或地址
+    attempts = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<PasswordResetCode user={self.user_id} code={self.code} used={self.used}>"

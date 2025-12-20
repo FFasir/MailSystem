@@ -1,14 +1,14 @@
-#Sat Dec 20 12:52:47 CST 2025
-base.0=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
-base.1=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
-base.2=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\12\\classes.dex
-base.3=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\13\\classes.dex
-base.4=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
-base.5=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\3\\classes.dex
-base.6=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\5\\classes.dex
-base.7=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
-base.8=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\9\\classes.dex
-base.9=D\:\\abc\\ComputerNetworking\\code\\d\\client\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
+#Sat Dec 20 20:45:12 CST 2025
+base.0=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
+base.1=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
+base.2=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\12\\classes.dex
+base.3=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\13\\classes.dex
+base.4=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
+base.5=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\3\\classes.dex
+base.6=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\5\\classes.dex
+base.7=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
+base.8=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\9\\classes.dex
+base.9=C\:\\Users\\shao\\Desktop\\MailSystem1\\client\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
 path.0=classes.dex
 path.1=0/classes.dex
 path.2=12/classes.dex

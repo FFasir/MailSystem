@@ -57,6 +57,9 @@ fun MailSystemApp() {
                 onNavigateToAppeal = {
                     navController.navigate("appeal")
                 },
+                onNavigateToForgot = {
+                    navController.navigate("forgot")
+                },
                 viewModel = authViewModel
             )
         }
@@ -77,6 +80,19 @@ fun MailSystemApp() {
             AppealScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                viewModel = authViewModel
+            )
+        }
+
+        composable("forgot") {
+            ForgotPasswordScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onFinished = {
+                    // 重置成功后返回登录页
+                    navController.navigate("login") {
+                        popUpTo("login") { inclusive = true }
+                    }
                 },
                 viewModel = authViewModel
             )

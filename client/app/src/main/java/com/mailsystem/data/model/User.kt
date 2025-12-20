@@ -56,6 +56,37 @@ data class ResetPasswordRequest(
     val new_password: String
 )
 
+data class BindPhoneRequest(
+    val phone_number: String
+)
+
+data class ProfileResponse(
+    val id: Int,
+    val username: String,
+    val role: String,
+    val is_disabled: Int,
+    val created_at: String,
+    val phone_number: String?,
+    val email: String?
+)
+
+data class UpdateProfileRequest(
+    val username: String?,
+    val phone_number: String?
+)
+
+// 忘记密码 - 请求验证码
+data class PasswordResetCodeRequest(
+    val username: String
+)
+
+// 忘记密码 - 确认重置
+data class PasswordResetConfirmRequest(
+    val username: String,
+    val code: String,
+    val new_password: String
+)
+
 // 黑名单数据模型
 data class IpBlacklistRequest(
     val ip: String
