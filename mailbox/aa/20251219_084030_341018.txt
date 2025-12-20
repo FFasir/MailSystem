@@ -1,6 +1,0 @@
-From: bb@mail.com
-To: aa@example.com
-Subject: 666
-Date: 2025-12-19 08:40:30
-
-666
