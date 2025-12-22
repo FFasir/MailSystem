@@ -110,7 +110,7 @@ class MailStorageService:
         sent_dir.mkdir(parents=True, exist_ok=True)
         return sent_dir
     @staticmethod
-    def save_mail(to_addr: str, from_addr: str, subject: str, body: str, reply_to_filename: str = None) -> str:
+    def save_mail(to_addr: str, from_addr: str, subject: str, body: str, reply_to_filename: str = None, filename: str = None) -> str:
         """
         保存邮件到收件箱
 
@@ -127,9 +127,15 @@ class MailStorageService:
         # 确保用户邮箱目录存在
         user_dir = MailStorageService.ensure_user_mailbox(username)
 
-        # 生成文件名（时间戳）
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"{timestamp}.txt"
+        # 生成或使用指定文件名
+        if filename:
+            # 兼容传入不带后缀的情况
+            if not filename.endswith(".txt"):
+                filename = f"{filename}.txt"
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"{timestamp}.txt"
+
         filepath = user_dir / filename
 
         # 写入邮件内容（标准RFC格式）
@@ -148,7 +154,7 @@ class MailStorageService:
         return str(filepath)
 
     @staticmethod
-    def save_sent_mail(from_addr: str, to_addrs: list, subject: str, body: str, reply_to_filename: str = None) -> str:
+    def save_sent_mail(from_addr: str, to_addrs: list, subject: str, body: str, reply_to_filename: str = None, filename: str = None) -> str:
         """
         保存邮件到发件箱
 
@@ -165,9 +171,13 @@ class MailStorageService:
         # 确保发件箱目录存在
         sent_dir = MailStorageService.ensure_user_sentbox(username)
 
-        # 生成文件名（时间戳）
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"{timestamp}.txt"
+        # 生成或使用指定文件名
+        if filename:
+            if not filename.endswith(".txt"):
+                filename = f"{filename}.txt"
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"{timestamp}.txt"
         filepath = sent_dir / filename
 
         # 写入邮件内容
@@ -377,6 +387,36 @@ class MailStorageService:
         return attachments
 
     @staticmethod
+    def get_attachment_filepaths(username: str, mail_filename: str) -> list:
+        """获取附件的完整路径信息列表"""
+        attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
+        if not attach_dir.exists():
+            return []
+
+        files = []
+        for file in attach_dir.glob("*"):
+            if file.is_file():
+                files.append({
+                    "file_path": str(file),
+                    "filename": file.name
+                })
+        return files
+
+    @staticmethod
+    def copy_attachments(src_username: str, src_mail_filename: str, dst_username: str, dst_mail_filename: str) -> None:
+        """拷贝附件到目标用户的附件目录"""
+        from shutil import copy2
+
+        src_dir = MailStorageService.get_attachment_dir(src_username, src_mail_filename)
+        if not src_dir.exists():
+            return
+
+        dst_dir = MailStorageService.ensure_attachment_dir(dst_username, dst_mail_filename)
+        for file in src_dir.glob("*"):
+            if file.is_file():
+                copy2(file, dst_dir / file.name)
+
+    @staticmethod
     def read_attachment(username: str, mail_filename: str, attachment_filename: str) -> bytes:
         """读取附件文件"""
         attach_dir = MailStorageService.get_attachment_dir(username, mail_filename)
@@ -404,4 +444,28 @@ class MailStorageService:
             return False
         except Exception:
             return False
+
+    @staticmethod
+    def find_recent_attachment_mail_filename(username: str, max_age_seconds: int = 180) -> str | None:
+        """从附件目录中推断最近一次上传所对应的 mail_filename。
+
+        用于兼容客户端未传 mail_filename 的情况，避免邮件文件名与附件目录不一致。
+        """
+        attach_root = Path(MailStorageService.BASE_DIR) / username / "attachments"
+        if not attach_root.exists():
+            return None
+
+        now_ts = datetime.now().timestamp()
+        candidates: list[Path] = [p for p in attach_root.glob("*") if p.is_dir()]
+        if not candidates:
+            return None
+
+        # 取最近修改的附件目录
+        latest = max(candidates, key=lambda p: p.stat().st_mtime)
+        age = now_ts - latest.stat().st_mtime
+        if age > max_age_seconds:
+            return None
+
+        # 目录名是去掉 .txt 的邮件名
+        return f"{latest.name}.txt"
 

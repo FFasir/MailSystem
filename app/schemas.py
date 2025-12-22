@@ -91,6 +91,7 @@ class SendMailRequest(BaseModel):
     to_addr: str
     subject: str
     body: str
+    mail_filename: Optional[str] = None  # 可选：客户端指定邮件文件名，便于附件匹配
 
 
 class AttachmentInfo(BaseModel):

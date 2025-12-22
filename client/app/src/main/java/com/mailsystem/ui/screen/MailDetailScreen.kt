@@ -51,6 +51,9 @@ fun MailDetailScreen(
     var attachmentError by remember { mutableStateOf("") }
     var isDownloadingAttachment by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // 有效的用于附件API的文件名（POP3映射后的真实filename或传入的filename）
+    var effectiveFilename by remember { mutableStateOf(filename) }
+    var lastLoadedAttachmentFilename by remember { mutableStateOf<String?>(null) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -67,19 +70,68 @@ fun MailDetailScreen(
     val mailId = filename.toIntOrNull()
 
     LaunchedEffect(filename) {
+        attachments = emptyList()
+        attachmentError = ""
+        lastLoadedAttachmentFilename = null
+
         if (mailId != null) {
+            // POP3：先读取邮件内容（内容里会包含后端插入的 X-Mail-Filename 头）
             mailViewModel.readMail(mailId)
         } else {
-            // If filename is not an integer, assume it's a sent mail filename
+            // 已发送或本地文件名：直接读取内容并加载附件
             mailViewModel.readSentMail(filename)
+            effectiveFilename = filename
+            isLoadingAttachments = true
+            try {
+                val result = mailViewModel.getAttachments(filename)
+                if (result.isSuccess) {
+                    attachments = result.getOrNull() ?: emptyList()
+                    lastLoadedAttachmentFilename = filename
+                } else {
+                    attachmentError = result.exceptionOrNull()?.message ?: "加载附件失败"
+                }
+            } catch (e: Exception) {
+                attachmentError = e.message ?: "加载附件失败"
+            } finally {
+                isLoadingAttachments = false
+            }
         }
-        
-        // ========== 新增：加载附件 ==========
+    }
+
+    // POP3：当邮件内容加载完成后，从头部解析真实文件名，再去加载附件
+    LaunchedEffect(mailContent) {
+        if (mailId == null) return@LaunchedEffect
+        if (mailContent.isBlank()) return@LaunchedEffect
+
+        val realFilename = mailContent.lines()
+            .firstOrNull { it.startsWith("X-Mail-Filename:", ignoreCase = true) }
+            ?.substringAfter(":")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+
+        // 如果没有该头，降级走旧的映射接口（兼容老服务端/旧邮件）
+        val resolvedFilename = realFilename ?: run {
+            try {
+                mailViewModel.getPop3Filename(mailId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        if (resolvedFilename == null) {
+            attachmentError = "无法定位附件"
+            return@LaunchedEffect
+        }
+
+        if (lastLoadedAttachmentFilename == resolvedFilename) return@LaunchedEffect
+
+        effectiveFilename = resolvedFilename
         isLoadingAttachments = true
         try {
-            val result = mailViewModel.getAttachments(filename)
+            val result = mailViewModel.getAttachments(resolvedFilename)
             if (result.isSuccess) {
                 attachments = result.getOrNull() ?: emptyList()
+                lastLoadedAttachmentFilename = resolvedFilename
             } else {
                 attachmentError = result.exceptionOrNull()?.message ?: "加载附件失败"
             }
@@ -415,7 +467,7 @@ fun MailDetailScreen(
                                             isDownloadingAttachment = true
                                             scope.launch {
                                                 try {
-                                                    val result = mailViewModel.downloadAttachment(filename, attachment.filename)
+                                                    val result = mailViewModel.downloadAttachment(effectiveFilename, attachment.filename)
                                                     if (result.isSuccess) {
                                                         val fileContent = result.getOrNull()
                                                         if (fileContent != null) {
@@ -545,7 +597,8 @@ fun MailDetailScreen(
                                                 from = from.replace("@localhost", "@mail.com")
                                             }
                                             replyTo = from
-                                            replySubject = if (subj.startsWith("Re:", ignoreCase = true)) subj else "Re: $subj"
+                                            // 保持原主题，不主动添加 Re: 前缀，与其他回复路径一致
+                                            replySubject = subj
                                         }
                                         showReplyConfirmDialog = true
                                     }

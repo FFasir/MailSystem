@@ -196,10 +196,10 @@ class MailViewModel(application: Application) : AndroidViewModel(application) {
         _error.value = null
     }
 
-    suspend fun sendMail(to: String, subject: String, content: String) {
+    suspend fun sendMail(to: String, subject: String, content: String, mailFilename: String?) {
         _loading.value = true
         _error.value = null
-        val result = repository.sendMail(to, subject, content)
+        val result = repository.sendMail(to, subject, content, mailFilename)
         if (!result.isSuccess) {
             _error.value = result.exceptionOrNull()?.message ?: "发送失败"
             throw result.exceptionOrNull() ?: Exception("发送失败")
@@ -234,6 +234,12 @@ class MailViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             null
         }
+    }
+
+    // POP3：获取真实文件名（用于附件加载）
+    suspend fun getPop3Filename(index: Int): String? {
+        val result = repository.getPop3Filename(index)
+        return if (result.isSuccess) result.getOrNull() else null
     }
 
     // 获取POP3原邮件主题（通过mailId），去掉"Re: "前缀

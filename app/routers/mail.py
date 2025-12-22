@@ -13,6 +13,7 @@ from app.utils.validators import is_valid_email, extract_username
 from app.db import SessionLocal
 from app.models import User
 import os
+from pathlib import Path
 
 router = APIRouter(prefix="/mail", tags=["邮件"])
 
@@ -232,17 +233,46 @@ async def send_mail(
     from app.config import SMTP_USER
     sender_username = user_info.get("username")
     
+    # 优先使用客户端传入的文件名（用于附件绑定）；若未传入，尝试从最近上传的附件目录推断
+    mail_filename = request.mail_filename or MailStorageService.find_recent_attachment_mail_filename(sender_username)
+
+    # 准备附件（若存在）
+    attachments = MailStorageService.get_attachment_filepaths(sender_username, mail_filename) if mail_filename else []
+
     # 根据收件人域名选择发送方式
     if domain == MAIL_DOMAIN:
         # 内部邮箱：直接保存到接收者邮箱目录
         from_addr = f"{sender_username}@{MAIL_DOMAIN}"
         
-        # 直接使用 MailStorageService 保存邮件
+        # 直接使用 MailStorageService 保存邮件，文件名可与附件保持一致
         filepath = MailStorageService.save_mail(
             to_addr=request.to_addr,
             from_addr=from_addr,
             subject=request.subject,
-            body=request.body
+            body=request.body,
+            filename=mail_filename
+        )
+        saved_filename = Path(filepath).name
+
+        # 将附件拷贝到收件人目录
+        try:
+            MailStorageService.copy_attachments(
+                src_username=sender_username,
+                src_mail_filename=saved_filename,
+                dst_username=username,
+                dst_mail_filename=saved_filename
+            )
+        except Exception:
+            # 附件拷贝失败不影响正文发送
+            pass
+
+        # 记录发件箱
+        MailStorageService.save_sent_mail(
+            from_addr=from_addr,
+            to_addrs=[request.to_addr],
+            subject=request.subject,
+            body=request.body,
+            filename=saved_filename
         )
         
         LogService.log_system(f"邮件已保存: {from_addr} -> {request.to_addr}")
@@ -263,11 +293,21 @@ async def send_mail(
             from_addr=from_addr,
             to_addr=request.to_addr,
             subject=request.subject,
-            body=request.body
+            body=request.body,
+            attachments=attachments
         )
 
         if not success:
             raise HTTPException(status_code=500, detail="邮件发送失败")
+
+        # 记录发件箱
+        MailStorageService.save_sent_mail(
+            from_addr=from_addr,
+            to_addrs=[request.to_addr],
+            subject=request.subject,
+            body=request.body,
+            filename=mail_filename
+        )
 
         return MessageResponse(
             success=True,
@@ -459,5 +499,19 @@ async def get_attachments(
         "filename": mail_filename,
         "attachments": attachments,
         "count": len(attachments)
+    }
+
+
+@router.get("/pop3/filename/{index}")
+async def get_pop3_filename(index: int, user_info: dict = Depends(verify_user_token)):
+    """将 POP3 序号映射为当前用户的实际文件名（用于前端加载附件）"""
+    username = user_info.get("username")
+    mails = MailStorageService.list_user_mails(username)
+    if index <= 0 or index > len(mails):
+        raise HTTPException(status_code=404, detail="邮件不存在")
+    filename = mails[index - 1]["filename"]
+    return {
+        "success": True,
+        "filename": filename
     }
 

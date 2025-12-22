@@ -44,7 +44,6 @@ env/
 .DS_Store
 
 # Project specific
-data/
 logs/
 mailbox/
 *.db

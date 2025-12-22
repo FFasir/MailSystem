@@ -296,19 +296,13 @@ fun ComposeScreen(
         if (isSending) {
             scope.launch {
                 try {
-                    // 第1步：先发送邮件
-                    mailViewModel.sendMail(recipient, subject, content)
-                    
-                    // 第2步：如果有附件，上传附件
+                    // 生成邮件文件名（客户端与服务端统一用于附件关联）
+                    val mailFilename = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date()) + ".txt"
+
+                    // 第1步：如果有附件，先上传附件（确保服务端发送时能复制/附带）
                     if (selectedFiles.isNotEmpty()) {
                         isUploadingAttachments = true
-                        // 生成临时邮件文件名（由发送时间戳构成）
-                        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
-                        val mailFilename = "${timestamp}.txt"
-                        
-                        // 等待邮件文件在服务器生成（延迟1秒）
-                        kotlinx.coroutines.delay(1000)
-                        
+
                         selectedFiles.forEachIndexed { index, uri ->
                             try {
                                 // 读取文件内容
@@ -339,6 +333,9 @@ fun ComposeScreen(
                         }
                         isUploadingAttachments = false
                     }
+
+                    // 第2步：发送邮件（携带统一的邮件文件名）
+                    mailViewModel.sendMail(recipient, subject, content, mailFilename)
                     
                     // 第3步：删除草稿（如果存在）
                     if (currentDraftFilename != null) {

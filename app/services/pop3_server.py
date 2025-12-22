@@ -178,6 +178,8 @@ class POP3Server:
                 LogService.log_pop3(f"读取邮件: {mail['filename']}", client_addr)
                 
                 response = f"+OK {mail['size']} octets\r\n"
+                # 为前端附件加载提供稳定的真实文件名标识（不依赖序号/排序）
+                response += f"X-Mail-Filename: {mail['filename']}\r\n"
                 response += content + "\r\n."
                 return response
             
