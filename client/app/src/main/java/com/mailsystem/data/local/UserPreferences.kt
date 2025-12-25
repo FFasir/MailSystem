@@ -23,6 +23,7 @@ class UserPreferences(private val context: Context) {
     private val PASSWORD_KEY = stringPreferencesKey("password")  // 添加密码存储（用于 POP3/SMTP）
     private val ROLE_KEY = stringPreferencesKey("role")
     private val USER_ID_KEY = stringPreferencesKey("user_id")
+    private val ADMIN_KEY = stringPreferencesKey("admin_key")
     
     val token: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[TOKEN_KEY]
@@ -42,6 +43,10 @@ class UserPreferences(private val context: Context) {
 
     val userId: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[USER_ID_KEY]
+    }
+
+    val adminKey: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[ADMIN_KEY]
     }
 /*
     // ========== 修改：保存用户信息时存储email ==========
@@ -81,6 +86,14 @@ class UserPreferences(private val context: Context) {
     }
 
     suspend fun userIdFirst(): Int? = userId.firstOrNull()?.toIntOrNull()
+
+    suspend fun saveAdminKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[ADMIN_KEY] = key
+        }
+    }
+
+    suspend fun getAdminKeyFirst(): String? = adminKey.firstOrNull()
 
 /*
     // ========== 新增：同步获取邮箱（用于拼接发件人地址） ==========

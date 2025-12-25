@@ -50,10 +50,10 @@ mailbox/
 *.sqlite
 *.sqlite3
 
-# Gradle (Android)
-client/.gradle/
-client/build/
-client/local.properties
+# # Gradle (Android)
+# client/.gradle/
+# client/build/
+# client/local.properties
 
-# Node modules (if any)
-node_modules/
+# # Node modules (if any)
+# node_modules/

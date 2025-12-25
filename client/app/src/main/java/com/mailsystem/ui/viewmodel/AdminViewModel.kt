@@ -250,6 +250,15 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // 管理员密钥：保存到本地，用于所有 /admin/* 请求头
+    fun setAdminKey(key: String) {
+        viewModelScope.launch {
+            userPreferences.saveAdminKey(key)
+            _message.value = "管理员密钥已保存"
+        }
+        
+    }
+
     // 管理员查看所有邮件
     private val _allMails = MutableStateFlow<List<AdminMailInfo>>(emptyList())
     val allMails: StateFlow<List<AdminMailInfo>> = _allMails

@@ -6,3 +6,5 @@ aliyun-python-sdk-core==2.15.0
 aliyun-python-sdk-dysmsapi==2.1.2
 python-dotenv==1.0.1
 python-multipart==0.0.6
+bcrypt==4.1.2
+PyJWT==2.9.0

@@ -351,7 +351,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun getUsers(): Result<List<User>> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.getUsers("Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.getUsers("Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -372,7 +373,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun deleteUser(userId: Int): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.deleteUser(userId, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.deleteUser(userId, "Bearer $token", adminKey)
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
@@ -394,7 +396,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun createUser(username: String, password: String, role: String = "user"): Result<User> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.createUser(CreateUserRequest(username, password, role), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.createUser(CreateUserRequest(username, password, role), "Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -410,7 +413,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
         if (role != "user" && role != "admin") return Result.failure(Exception("非法角色"))
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.updateUserRole(userId, UpdateUserRoleRequest(role), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.updateUserRole(userId, UpdateUserRoleRequest(role), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) Result.success(Unit)
             else Result.failure(Exception(response.body()?.message ?: response.message()))
         } catch (e: Exception) { Result.failure(e) }
@@ -419,7 +423,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun disableUser(userId: Int, reason: String? = null): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.disableUser(userId, DisableUserRequest(reason), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.disableUser(userId, DisableUserRequest(reason), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) Result.success(Unit)
             else Result.failure(Exception(response.body()?.message ?: response.message()))
         } catch (e: Exception) { Result.failure(e) }
@@ -428,7 +433,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun enableUser(userId: Int): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.enableUser(userId, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.enableUser(userId, "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) Result.success(Unit)
             else Result.failure(Exception(response.body()?.message ?: response.message()))
         } catch (e: Exception) { Result.failure(e) }
@@ -437,7 +443,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun resetUserPassword(userId: Int, newPassword: String): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.resetUserPassword(userId, ResetPasswordRequest(newPassword), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.resetUserPassword(userId, ResetPasswordRequest(newPassword), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) Result.success(Unit)
             else Result.failure(Exception(response.body()?.message ?: response.message()))
         } catch (e: Exception) { Result.failure(e) }
@@ -446,7 +453,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun forceLogoutUser(userId: Int): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
-            val response = api.forceLogoutUser(userId, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.forceLogoutUser(userId, "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) Result.success(Unit)
             else Result.failure(Exception(response.body()?.message ?: response.message()))
         } catch (e: Exception) { Result.failure(e) }
@@ -455,9 +463,11 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun broadcastMail(subject: String, body: String, userIds: List<Int>? = null): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录，请先登录"))
+            val adminKey = userPreferences.getAdminKeyFirst()
             val response = api.broadcastMail(
                 BroadcastMailRequest(subject, body, "admin@localhost", userIds),
-                "Bearer $token"
+                "Bearer $token",
+                adminKey
             )
             if (response.isSuccessful) {
                 Result.success(Unit)
@@ -578,7 +588,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun changeAdminPassword(oldPassword: String, newPassword: String): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.changeAdminPassword(ChangePasswordRequest(old_password = oldPassword, new_password = newPassword), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.changeAdminPassword(ChangePasswordRequest(old_password = oldPassword, new_password = newPassword), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -593,7 +604,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun getIpBlacklist(): Result<List<String>> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.getIpBlacklist("Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.getIpBlacklist("Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!.ips)
             } else {
@@ -607,7 +619,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun addIpToBlacklist(ip: String): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.addIpToBlacklist(IpBlacklistRequest(ip), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.addIpToBlacklist(IpBlacklistRequest(ip), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -621,7 +634,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun removeIpFromBlacklist(ip: String): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.removeIpFromBlacklist(ip, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.removeIpFromBlacklist(ip, "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -636,7 +650,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun getEmailBlacklist(): Result<List<String>> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.getEmailBlacklist("Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.getEmailBlacklist("Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!.emails)
             } else {
@@ -655,7 +670,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
 
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.addEmailToBlacklist(EmailBlacklistRequest(email), "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.addEmailToBlacklist(EmailBlacklistRequest(email), "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -669,7 +685,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun removeEmailFromBlacklist(email: String): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.removeEmailFromBlacklist(email, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.removeEmailFromBlacklist(email, "Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -683,7 +700,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun reloadFilters(): Result<Unit> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.reloadFilters("Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.reloadFilters("Bearer $token", adminKey)
             if (response.isSuccessful && (response.body()?.success == true)) {
                 Result.success(Unit)
             } else {
@@ -773,7 +791,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun getAllMails(): Result<List<AdminMailInfo>> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.getAllMails("Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.getAllMails("Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!.mails)
             } else {
@@ -787,7 +806,8 @@ class MailRepository(private val userPreferences: UserPreferences) {
     suspend fun getUserMail(username: String, filename: String): Result<String> {
         return try {
             val token = userPreferences.token.first() ?: return Result.failure(Exception("未登录"))
-            val response = api.getUserMail(username, filename, "Bearer $token")
+            val adminKey = userPreferences.getAdminKeyFirst()
+            val response = api.getUserMail(username, filename, "Bearer $token", adminKey)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!.content)
             } else {

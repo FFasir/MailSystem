@@ -101,6 +101,30 @@ fun AdminScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // 管理员密钥设置（用于通过后端额外校验）
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            var adminKeyInput by remember { mutableStateOf("") }
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("管理员密钥", style = MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(
+                                    value = adminKeyInput,
+                                    onValueChange = { adminKeyInput = it },
+                                    label = { Text("X-Admin-Key（由服务端配置）") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { if (adminKeyInput.isNotBlank()) adminViewModel.setAdminKey(adminKeyInput) }
+                                    ) { Text("保存") }
+                                    Text(
+                                        text = "保存后，所有管理接口将自动携带",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                     // 所有用户邮件
                     item {
                         Card(modifier = Modifier.fillMaxWidth()) {

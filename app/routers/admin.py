@@ -11,11 +11,15 @@ from app.services.mail_storage import MailStorageService
 from app.services.filter_service import FilterService
 from pydantic import BaseModel
 from typing import List, Optional
+from app.config import ADMIN_ACCESS_KEY
 
 router = APIRouter(prefix="/admin", tags=["管理"])
 
 
-def verify_admin_token(authorization: str = Header(None)) -> dict:
+def verify_admin_token(
+    authorization: str = Header(None),
+    x_admin_key: str = Header(None, alias="X-Admin-Key")
+) -> dict:
     """验证管理员权限"""
     if not authorization:
         raise HTTPException(status_code=401, detail="缺少认证令牌")
@@ -28,6 +32,11 @@ def verify_admin_token(authorization: str = Header(None)) -> dict:
     
     if user_info.get("role") != "admin":
         raise HTTPException(status_code=403, detail="仅管理员可访问")
+
+    # 额外校验：当配置了 ADMIN_ACCESS_KEY 时，要求客户端提供匹配的 X-Admin-Key 头
+    if ADMIN_ACCESS_KEY:
+        if not x_admin_key or x_admin_key != ADMIN_ACCESS_KEY:
+            raise HTTPException(status_code=403, detail="缺少或错误的 X-Admin-Key")
     
     return user_info
 

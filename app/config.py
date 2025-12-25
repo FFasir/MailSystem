@@ -31,6 +31,19 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
 # 邮件域名
 MAIL_DOMAIN = os.getenv("MAIL_DOMAIN", "mail.com")
 
+# JWT 配置
+TOKEN_SECRET = os.getenv("TOKEN_SECRET", "dev-secret-change")
+TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "60"))
+TOKEN_ALGORITHM = os.getenv("TOKEN_ALGORITHM", "HS256")
+
+# 管理员接口额外校验密钥（设置后启用）
+ADMIN_ACCESS_KEY = os.getenv("ADMIN_ACCESS_KEY", "")
+
+# 登录失败锁定与冷却（安全）
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))  # 连续失败次数达到后触发短期锁定
+LOGIN_LOCKOUT_MINUTES = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "10"))  # 锁定时长（分钟）
+LOGIN_COOLDOWN_SECONDS = int(os.getenv("LOGIN_COOLDOWN_SECONDS", "5"))  # 每次失败后的冷却时间（秒），期间拒绝再次尝试
+
 # 短信配置
 SMS_ENABLED = os.getenv("SMS_ENABLED", "true").lower() == "true"
 SMS_PROVIDER = os.getenv("SMS_PROVIDER", "log")  # log/aliyun
